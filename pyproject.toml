@@ -1,0 +1,17 @@
+[project]
+name = "kaggle-template-repo"
+version = "0.1.0"
+description = "Reusable project template for reproducible data science competition experiments"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

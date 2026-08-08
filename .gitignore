@@ -1,0 +1,39 @@
+# Python environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Local competition data and disposable caches
+data/raw/*
+!data/raw/.gitkeep
+data/cache/*
+!data/cache/.gitkeep
+
+# Reproducible processed data (documentation remains tracked)
+data/processed/*
+!data/processed/README.md
+
+# Large experiment artifacts
+experiments/**/oof.parquet
+experiments/**/*.ckpt
+experiments/**/*.pth
+experiments/**/*.pt
+experiments/**/*.joblib
+experiments/**/*.pkl
+experiments/**/*.log
+experiments/**/log*.txt
+
+# Generated submissions
+submissions/*.csv
+!submissions/.gitkeep
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
