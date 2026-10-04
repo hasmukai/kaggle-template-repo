@@ -1,34 +1,38 @@
 # 実験管理仕様
 
-このドキュメントでは、本リポジトリにおける実験管理の規約を定義する。
+このドキュメントでは、本リポジトリにおける実験管理の詳細規約を定義する。
 
-目的は、実験履歴を人間とコーディングエージェントの双方が容易に理解できる状態を保ちながら、**高速かつ再現可能な実験サイクル**を実現することである。
+目的は、実験履歴を人間とコーディングエージェントの双方が理解できる状態に保ちつつ、**高速・再現可能・戦略的なexperiment cycle**を実現することである。
 
-基本的な開発サイクルは以下とする。
+Public Leaderboardへのsubmissionは主要な評価手段としない。
+
+基本cycle:
 
 ```text
-過去の実験を確認
+STATUS / registry / durable knowledgeを確認
         ↓
-仮説を立てる
+strategic questionを選ぶ
         ↓
-新しいexperimentを作成
+hypothesisを選択・作成
         ↓
-config / 実装を変更
+logical parentとexperiment-vs-trialを決める
         ↓
-前処理・特徴量生成
+最小限のconfig / 実装変更
         ↓
-ローカルCVで評価
+実装のriskに応じてverification
         ↓
-結果を保存
+screening experiment
         ↓
-結果を分析
+結果・uncertaintyを分析
         ↓
-得られた知見を更新
+必要ならconfirmation
         ↓
-次のexperimentを決める
+robust parentをpromotionまたは維持
+        ↓
+適切なknowledge documentを更新
+        ↓
+Search Map / queueを再評価
 ```
-
-Public Leaderboardへのsubmissionは、主要な評価手段とはしない。
 
 ---
 
@@ -36,80 +40,75 @@ Public Leaderboardへのsubmissionは、主要な評価手段とはしない。
 
 ## 再現性
 
-完了したexperimentについて、後から以下を確認できる状態を維持する。
+Completed experimentについて、後から以下を確認できる状態を維持する。
 
-* どのconfigを使用したか
-* どのソースコードの状態を使用したか
-* どのCV方式を使用したか
-* どのような予測・評価結果が得られたか
-* その結果をどのように解釈したか
+- どのconfigを使用したか
+- どのsource code stateを使用したか
+- どのCV方式を使用したか
+- どのようなprediction / metricが得られたか
+- その結果をどのように解釈したか
 
-再生成可能な大容量artifactは、必ずしも永続保存する必要はない。
+再生成可能な大容量artifactは必ずしもGitで永続保存しない。
 
-## 仮説駆動の実験
+## 仮説駆動
 
-各experimentでは、原則として1つの明確な問いを検証する。
+各experimentでは原則として1つの明確なscientific questionまたはdiagnostic questionを検証する。
 
-新しいexperimentには原則として以下を設定する。
+新しいexperimentでは少なくとも以下を明示する。
 
-* `hypothesis`
-* `parent_experiment`
-* 親experimentからの明確な変更点
-* 評価基準
+- `hypothesis`
+- `parent_experiment`
+- parentからの変更点
+- 固定条件
+- decision metric / diagnostic
+- positive / negativeのどちらでも得られるinformation
 
-複数の無関係な変更を一度に加えることは避ける。
+複数要素のinteraction自体がhypothesisの場合を除き、無関係な変更を一度に混ぜない。
 
-複数要素の相互作用そのものを検証する場合は、この限りではない。
+## ローカルCV中心
 
-## ローカルCVを中心にする
+通常のmodel developmentでは標準Cross-Validationを主要評価とする。
 
-モデル開発では、ローカルCross-Validationを主要な評価手段とする。
+CV設計自体を研究してよいが、互換性のないCV schemeのraw scoreを直接比較しない。
 
-通常のexperimentでは標準CVを使用し、experiment間のスコアを比較可能にする。
+## 軽量記録
 
-CV方式そのものを検証するexperimentを行ってもよいが、互換性のないCV方式から得られたスコアを直接比較しない。
+軽量なhistorical recordを優先して保存する。
 
-## 軽量な実験記録
+- `config.yaml`
+- `metrics.json`
+- `metadata.json`
+- `README.md`
 
-以下のような軽量ファイルは保存する。
+大容量かつ再生成可能なartifactは必要に応じて保存し、通常Gitへcommitしない。
 
-* `config.yaml`
-* `metrics.json`
-* `metadata.json`
-* `README.md`
+## Context loading
 
-以下のような大容量かつ再生成可能なartifactは、Gitで永続管理する必要はない。
-
-* processed data
-* model checkpoint
-* 大容量log
-* OOF prediction
-
-## エージェントからの読みやすさ
-
-エージェントがリポジトリ全体を毎回調査しなくても現在の状態を把握できるようにする。
-
-基本的な読み取り順序は以下とする。
+Defaultの読み取り順序:
 
 ```text
 AGENTS.md
 ↓
-docs/EXPERIMENT_SUMMARY.md
+docs/STATUS.md
 ↓
 experiments/experiments.csv
 ↓
-関連するexperiment directory
+docs/EXPERIMENT_SUMMARY.md（durable findingが必要な場合）
 ↓
-関連するconfig
+docs/experiment_queue/QUEUE.md（future work選定時）
 ↓
-関連するsource code
+関連experiment / config / source
+↓
+docs/ENGINEERING_NOTES.md（runtime / resourceが関係する場合）
 ```
+
+過去experimentを毎回すべて読む必要はない。
 
 ---
 
-# 2. Experimentの命名規則
+# 2. Experiment命名規則
 
-Experiment IDは以下の形式とする。
+形式:
 
 ```text
 exp_NNN_short_description
@@ -126,128 +125,78 @@ exp_031_test_alternative_cv
 
 ルール:
 
-* `NNN` はゼロ埋めした連番とする
-* `short_description` は主要な変更内容を簡潔に表す
-* lowercase snake_caseを使用する
-* Experiment IDを再利用しない
-* 完了済みexperimentのIDはimmutableとする
+- `NNN` はゼロ埋め連番
+- `short_description` はlowercase snake_case
+- IDを再利用しない
+- completed experimentのIDはimmutable
 
-Experiment IDは以下で共通して使用する。
-
-* config filename
-* experiment directory
-* experiment registry
-* `parent_experiment`
-* submissionとの紐付け
+Experiment IDはconfig filename、result directory、registry、`parent_experiment`、submission provenanceで共通して使用する。
 
 ---
 
-# 3. BaselineとParent Experiment
+# 3. Baseline / Parent / Robust Parent
 
 ## Baseline
 
-初期基準experimentは以下とする。
+初期基準は `exp_001_baseline` とする。
 
-```text
-exp_001_baseline
-```
-
-baseline確定後、その意味を変更しない。
-
-後からbaseline実装に問題が見つかった場合も、過去のexperimentを上書きしてはならない。
-
-修正版を新しいexperimentとして作成する。
+Baseline確定後、その意味を変更しない。実装上の問題が見つかった場合は新しいcorrective experimentを作る。
 
 ## Parent Experiment
 
-新しいexperimentでは原則として以下を指定する。
+新experimentは原則としてlogical parentを指定する。
 
 ```yaml
 parent_experiment: exp_XXX_name
 ```
 
-`parent_experiment`には、新しいexperimentが論理的に派生したexperimentを指定する。
+Parentは「直前に実行したexperiment」や「数値上の最高score」を機械的に選ばず、hypothesisに最も適した系譜を選ぶ。
 
-単純に直前に実行されたexperimentを指定してはならない。
+## Robust Parent
 
-例:
+`docs/STATUS.md` には、今後の標準的な土台として十分に信頼できるexperimentをRobust Parentとして記録する。
 
-```text
-exp_010_add_feature_a
-        ↓
-exp_015_add_feature_b_on_top_of_a
-        ↓
-exp_021_change_model_with_features_a_b
-```
-
-これによりexperimentの系譜を追跡可能にする。
+これはnumerical bestと一致しない場合がある。
 
 ---
 
-# 4. ExperimentとTrialの使い分け
+# 4. ExperimentとTrial
 
-すべてのパラメータ変更について新しいexperimentを作成する必要はない。
+## 新しいexperimentにする場合
 
-## 新しいexperimentを作る場合
-
-意味のある別の仮説を検証するときに新しいexperimentを作る。
+意味のある別の問いを検証するときに新experimentを作る。
 
 例:
 
-* 新しい特徴量群を追加する
-* 前処理方法を変更する
-* モデル系統を変更する
-* target transformationを変更する
-* CV設計を変更する
-* ensembleを導入する
-* 欠損値の処理方法を変更する
+- 新しいfeature family
+- preprocessing方式変更
+- model family変更
+- target transformation変更
+- CV設計変更
+- ensemble導入
+- data flowや欠損処理方針変更
 
-## 同一experiment内のtrialとする場合
+## Trialにする場合
 
-同じ仮説について、小さなパラメータ差を比較するときはtrialを使用する。
+同じscientific questionの下で、小さな候補差を比較するときは同一experiment内のtrialとする。
 
 例:
 
-```yaml
-trials:
-  max_depth:
-    - 6
-    - 8
-    - 10
-```
+- `max_depth = 6 / 8 / 10`
+- 多数のindividual feature screening
+- feature pair screening
+- 小さなmodel structure variation
+- equivalent preprocessing variants
 
-この場合、3つのexperimentではなく、1つのexperiment内の3 trialとして扱う。
+Registry rowは「候補値」ではなく「意味のある問い」の単位に保つ。
 
-別の例:
-
-```yaml
-trials:
-  learning_rate:
-    - 0.03
-    - 0.05
-  num_leaves:
-    - 31
-```
-
-初期段階ではtrial数を少なく保つ。
-
-大規模なhyperparameter optimizationは初期段階では行わない。
-
-Optunaなどは、モデル構造・特徴量・validation・主要なモデリング方針がある程度固まってから導入を検討する。
+大規模hyperparameter optimizationは初期段階のdefaultにしない。
 
 ---
 
 # 5. Experiment Config
 
-Experimentの定義は以下に保存する。
-
-```text
-configs/
-```
-
-各experimentについて、自己完結したYAMLファイルを1つ使用する。
-
-例:
+Experiment definitionは `configs/` に自己完結したYAMLとして保存する。
 
 ```text
 configs/exp_023_add_depth_feature.yaml
@@ -259,58 +208,33 @@ configs/exp_023_add_depth_feature.yaml
 1 experiment = 1 YAML
 ```
 
-複数ファイルにまたがる複雑なconfig継承は避ける。
+Config inheritanceを複雑化しすぎない。
 
-1つのファイルを読むだけでexperimentの内容を理解できるのであれば、ある程度の重複は許容する。
-
-## 推奨schema
+推奨section:
 
 ```yaml
 experiment:
   id: exp_023_add_depth_feature
-  description: "depth由来特徴量を追加"
-  hypothesis: >
-    depth由来特徴量を追加することで、
-    データの構造をより適切に表現でき、
-    CV性能が改善すると予想する。
-  notes: >
-    exp_017をベースとし、特徴量のみ変更する。
-  parent_experiment: exp_017_previous_best
+  description: "..."
+  hypothesis: "..."
+  notes: "..."
+  parent_experiment: exp_017_previous
   role: candidate
 
-data:
-  # dataset configuration
-
-preprocessing:
-  # preprocessing configuration
-
-features:
-  # feature configuration
-
-cv:
-  # CV configuration
-
-model:
-  name: lightgbm
-  params:
-    # model parameters
-
-training:
-  # training settings
-
-trials:
-  # optional
+data: {}
+preprocessing: {}
+features: {}
+cv: {}
+model: {}
+training: {}
+trials: {}
 ```
 
-特定のexperimentで不要なsectionは省略してよい。
-
-Configには「どのような動作を行うか」を記述し、実装詳細そのものはsource code側に置く。
+必要に応じてCPU threads、device、determinism等のresource設定をconfigから確認可能にする。
 
 ---
 
 # 6. Experiment Role
-
-必要に応じて`role`を設定する。
 
 推奨値:
 
@@ -321,39 +245,17 @@ cv_study
 diagnostic
 ```
 
-## `baseline`
-
-固定baseline。
-
-## `candidate`
-
-通常の性能改善experiment。
-
-## `cv_study`
-
-validation方法そのものを調査するexperiment。
-
-## `diagnostic`
-
-直接的な性能改善よりも、モデルやデータの挙動理解を目的とするexperiment。
-
-`role`は主に可読性・filteringのための情報であり、実験管理システムが強く依存する設計にはしない。
+Roleは主に可読性・filtering用であり、systemが強く依存しすぎない。
 
 ---
 
 # 7. Cross-Validation
 
-ローカルCVを主要な評価手段とする。
-
 ## 標準CV
 
-プロジェクト初期に標準CV方式を決定する。
+Project初期に標準CVを定義する。
 
-通常のexperimentでは原則として同じ標準CVを使用する。
-
-これにより、スコア差がvalidation splitではなくexperimentの変更によるものである可能性を高める。
-
-標準CVでは少なくとも以下を定義する。
+最低限:
 
 ```text
 method
@@ -362,36 +264,26 @@ random seed（必要な場合）
 grouping / stratification rules
 ```
 
-可能であれば、seedだけでなく実際のfold assignmentも保存する。
+通常experimentでは同じ標準CVを使用する。
 
-例:
-
-```text
-data/processed/folds.parquet
-```
-
-保存場所や形式はcompetitionのデータ構造に応じて変更してよい。
+可能ならseedだけでなくactual fold assignmentを保存する。
 
 ## Alternative CV
 
-CV設計自体をexperimentの対象としてよい。
+CV設計そのものをexperiment対象にしてよい。
 
-その場合:
+- 必要に応じて `role: cv_study`
+- 標準CVとの差を明記
+- 何を検証するCVか説明
+- standard-CV experimentとraw scoreを直接比較しない
 
-* 必要に応じて`role: cv_study`とする
-* 標準CVとの違いを明記する
-* 何を検証するためのCVなのかを説明する
-* 標準CVのexperimentとraw scoreを直接比較しない
+Alternative CVを新しい標準へ採用する場合は、`docs/STATUS.md` のcurrent strategyを更新し、CVに関するdurable findingを `docs/EXPERIMENT_SUMMARY.md` に記録する。
 
-Alternative CVを新しい標準CVとして採用する場合、その判断を`EXPERIMENT_SUMMARY.md`に明示する。
-
-過去のscoreの意味を後から変更してはならない。
+過去scoreの意味を後から変更しない。
 
 ---
 
-# 8. Experimentの作成
-
-新しいexperimentは原則として既存experimentから作成する。
+# 8. Experiment作成
 
 想定interface:
 
@@ -401,27 +293,13 @@ uv run python scripts/new_experiment.py \
   --name add_new_feature
 ```
 
-Scriptは以下を行う。
+Scriptはparent configを基に新IDと`parent_experiment`を設定するが、hypothesisやdescriptionを勝手に決めない。
 
-1. parent experiment/configを特定する
-2. 次のexperiment番号を決定する
-3. parent configをコピーする
-4. 新しいExperiment IDを設定する
-5. `parent_experiment`を設定する
-6. descriptionなどを新しいexperiment用に更新可能な状態にする
-7. ユーザーまたはエージェントが新しいhypothesisと変更内容を記述する
-
-生成例:
-
-```text
-configs/exp_024_add_new_feature.yaml
-```
-
-このscriptがsource codeを勝手に変更してはならない。
+Source codeを自動変更しない。
 
 ---
 
-# 9. Experimentの実行
+# 9. Experiment実行
 
 想定interface:
 
@@ -430,163 +308,96 @@ uv run python scripts/run_experiment.py \
   --config configs/exp_024_add_new_feature.yaml
 ```
 
-Experiment pipelineは必要な処理を自動実行する。
-
-概念的な処理フロー:
+Conceptual flow:
 
 ```text
-config読み込み
+config validation
 ↓
-experiment definition検証
+Git state capture
 ↓
-Git状態取得
+data preparation
 ↓
-データ準備
+preprocessing
 ↓
-前処理
+feature generation
 ↓
-特徴量生成
+fold load / generation
 ↓
-CV fold読み込み / 生成
+trial execution
 ↓
-trial実行（定義されている場合）
+fold training
 ↓
-各foldで学習
+validation prediction
 ↓
-validation prediction生成
+metrics
 ↓
-metrics計算
+OOF / artifacts
 ↓
-OOF prediction保存
+metrics / metadata
 ↓
-metrics / metadata保存
+registry update
 ↓
-experiment registry更新
-↓
-experiment README準備
+experiment README
 ```
 
-内部architectureは必要に応じて変更してよいが、通常のexperimentは1コマンドで実行可能な状態を維持する。
+通常experimentは1commandで実行可能な状態を目標とする。
 
 ---
 
-# 10. ExperimentのImmutable性
+# 10. Immutable性
 
-completed experimentのresult directoryは過去の実行状態を表す。
+Completed experiment directoryはhistorical recordである。
 
-以下を行ってはならない。
+禁止事項:
 
-* 後の実行内容に合わせて`config.yaml`を書き換える
-* 異なる結果で`metrics.json`を置き換える
-* 同じExperiment IDを別のコードで再利用する
-* 別条件のOOF predictionで既存ファイルを上書きする
+- 後のrunに合わせて保存済み`config.yaml`を書き換える
+- 異なる結果で`metrics.json`を置き換える
+- 同じIDを別条件で再利用する
+- 別条件のOOFで既存artifactを上書きする
 
-意味のある変更を行う場合は、新しいexperimentを作る。
+Meaningful changeは新experimentとして実行する。
 
-## Failed run
-
-有効なcompleted resultが一度も生成されておらず、experiment definitionも変更されていない場合は、同じExperiment IDで再実行してよい。
-
-Debug中に科学的な結果へ影響する変更を加えた場合は、新しいExperiment IDを作ることを優先する。
+Failed runで、科学的条件が変わっていない場合のみ同じIDで再実行してよい。
 
 ---
 
-# 11. Experiment Result Directory
-
-Experiment resultは以下に保存する。
+# 11. Result Directory
 
 ```text
 experiments/<experiment_id>/
 ```
 
-例:
+典型例:
 
 ```text
-experiments/
-└── exp_024_add_new_feature/
-    ├── config.yaml
-    ├── metrics.json
-    ├── metadata.json
-    ├── README.md
-    ├── oof.parquet
-    ├── log.txt
-    ├── trials.csv
-    ├── feature_importance.csv
-    └── git_diff.patch
+config.yaml
+metrics.json
+metadata.json
+README.md
+oof.parquet
+log.txt
+trials.csv
+feature_importance.csv
+git_diff.patch
 ```
 
-すべてのexperimentにすべてのoptional fileが必要なわけではない。
+Optional fileはexperimentに応じて省略可能。
 
 ---
 
 # 12. config.yaml
 
-Experiment result directoryには、実際に実行したconfigの完全なコピーを保存する。
+Result directoryへ実際に実行したconfigの完全copyを保存する。
 
-```text
-experiments/exp_024_add_new_feature/config.yaml
-```
-
-Training開始前までに保存する。
-
-Experiment完了後、このファイルはimmutableとして扱う。
-
-`configs/`側のファイルが将来変更されたとしても、このコピーによって実際に何を実行したのかを確認できるようにする。
+Training開始前までに保存し、experiment完了後はimmutableとする。
 
 ---
 
 # 13. metrics.json
 
-`metrics.json`には構造化された評価結果を保存する。
+Machine-readableな評価結果を保存し、定性的考察は含めない。
 
-定性的な考察は含めない。
-
-推奨構造:
-
-```json
-{
-  "primary_metric": {
-    "name": "macro_f1",
-    "overall": 0.7241,
-    "mean": 0.7238,
-    "std": 0.0062
-  },
-
-  "folds": [
-    {
-      "fold": 0,
-      "score": 0.7184,
-      "best_iteration": 842,
-      "train_time_sec": 31.4
-    },
-    {
-      "fold": 1,
-      "score": 0.7295,
-      "best_iteration": 917,
-      "train_time_sec": 29.8
-    }
-  ],
-
-  "secondary_metrics": {
-    "accuracy": 0.812,
-    "precision_macro": 0.731,
-    "recall_macro": 0.719
-  },
-
-  "timing": {
-    "total_sec": 182.5,
-    "preprocessing_sec": 12.8,
-    "training_sec": 154.2,
-    "prediction_sec": 4.1
-  }
-}
-```
-
-実際に使用するmetricはcompetitionに応じて変更する。
-
-## Primary Metric
-
-最低限以下を保存する。
+最低限、primary metricについて可能なら以下を保持する。
 
 ```text
 name
@@ -595,275 +406,151 @@ mean
 std
 ```
 
-Competition metricがfold mean/stdに自然に分解できない場合は適宜変更する。
+Fold-level score、best iteration、timing、secondary metric等は有用なものだけ追加する。
 
-## Fold Results
-
-各foldについて必要に応じて以下を保存する。
-
-```text
-fold
-score
-best_iteration
-train_time_sec
-```
-
-有用なmodel固有情報がある場合は追加してよい。
-
-## Secondary Metrics
-
-モデルの挙動理解に役立つmetricのみ保存する。
-
-ライブラリから計算できるmetricを無条件ですべて保存する必要はない。
-
-## Timing
-
-必要に応じて以下を保存する。
-
-```text
-total_sec
-preprocessing_sec
-feature_generation_sec
-training_sec
-prediction_sec
-```
-
-これにより、性能改善と計算コストのtrade-offを評価できるようにする。
+Timingは性能と計算コストのtrade-off評価に使える粒度で保存する。
 
 ---
 
 # 14. Trial Results
 
-複数trialを実行した場合、その結果を保存する。
-
-小規模trialでは以下を使用してよい。
-
-```text
-trials.csv
-```
-
-例:
+複数trialがある場合は、必要に応じて `trials.csv` 等にtrial parameterとresultを保存する。
 
 ```text
 trial_id,max_depth,num_leaves,cv_score,duration_sec
 trial_001,6,31,0.7210,172.4
-trial_002,8,31,0.7241,181.7
-trial_003,10,31,0.7228,196.2
 ```
 
-選択されたbest trialは`metrics.json`にも記録する。
+Best trialは `metrics.json` にも記録する。
 
-例:
-
-```json
-{
-  "best_trial": "trial_002"
-}
-```
-
-Trial configurationが複雑な場合も、各trialを一意に識別し再現できるだけのparameter情報を保存する。
+各trialを一意に再現できるparameter情報を残す。
 
 ---
 
 # 15. metadata.json
 
-`metadata.json`にはexperimentの実行来歴を保存する。
+Execution provenanceを保存する。
 
-推奨項目:
+例:
 
 ```json
 {
   "experiment_id": "exp_024_add_new_feature",
   "status": "completed",
-  "created_at": "2026-08-08T17:00:00+09:00",
-  "completed_at": "2026-08-08T17:03:02+09:00",
+  "created_at": "...",
+  "completed_at": "...",
   "duration_sec": 182.5,
-
   "git": {
     "commit": "abc1234",
     "dirty": true,
     "diff_saved": true
   },
-
   "environment": {
-    "python_version": "3.11.x"
+    "python_version": "3.x"
   }
 }
 ```
 
-再現性に重要であれば追加のenvironment情報を保存してよい。
-
-ただし、毎回数百個のpackage versionを保存するような仕組みは原則不要とする。
-
-Dependency historyの多くは`uv.lock`から追跡できる。
+Package versionを無条件に大量保存せず、dependency historyは可能な範囲で`uv.lock`から追跡する。
 
 ---
 
-# 16. Git Stateとgit_diff.patch
+# 16. Git State / git_diff.patch
 
-未commitの変更が存在する状態でもexperimentを実行してよい。
+Dirty working treeでのexperimentを許容する。
 
-高速な試行錯誤のため、experimentごとのcommitを必須にはしない。
-
-Experiment開始時に自動的に以下を記録する。
+開始時に:
 
 ```text
 current Git commit
-working treeがdirtyかどうか
+working tree dirty state
 ```
 
-Working treeがdirtyの場合、関連するdiffを以下に保存する。
+を保存する。
+
+Dirtyの場合、関連diffを `experiments/<experiment_id>/git_diff.patch` に自動保存する。
+
+概念的には:
 
 ```text
-experiments/<experiment_id>/git_diff.patch
+experiment code state = recorded commit + git_diff.patch
 ```
-
-概念的には、
-
-```text
-experiment実行時のcode state
-=
-recorded Git commit
-+
-git_diff.patch
-```
-
-となる。
-
-この処理はexperiment runnerが自動的に行う。
-
-ユーザーやエージェントが手動でdiffをコピーする必要はない。
 
 ---
 
 # 17. OOF Predictions
 
-可能な限りOut-of-Fold predictionを保存する。
+可能な限りOOF predictionを保存する。
 
-推奨file:
+推奨:
 
 ```text
 oof.parquet
 ```
 
-OOF predictionは以下に利用できる。
+利用例:
 
-* Error Analysis
-* experiment間比較
-* calibration分析
-* ensemble
-* foldごとの挙動調査
-* 不自然なCV改善の調査
+- Error Analysis
+- experiment comparison
+- calibration
+- ensemble
+- fold diagnostics
+- suspicious CV improvement investigation
 
-元のtraining rowとpredictionを対応付けられる情報を持たせる。
+元training rowとpredictionを対応付けられるschemaにする。
 
-典型的なcolumn:
-
-```text
-row_id
-fold
-target
-prediction
-```
-
-Classificationの場合はclass probabilityも保存してよい。
-
-具体的なschemaはcompetitionに合わせる。
-
-OOF fileは大容量になる可能性があるため、通常Gitにはcommitしない。
+OOFは通常Gitへcommitしない。
 
 ---
 
-# 18. Feature ImportanceとDiagnostics
+# 18. Feature Importance / Diagnostics
 
-Modelから意味のあるfeature importanceを取得できる場合、必要に応じて以下を保存する。
-
-```text
-feature_importance.csv
-```
-
-すべてのmodelを無理に同じfeature importance interfaceへ合わせる必要はない。
-
-その他、有用なdiagnostic artifactも必要に応じて保存してよい。
+意味のある場合のみfeature importanceやdiagnostic artifactを保存する。
 
 例:
 
 ```text
-confusion matrix用データ
-group別score
-class別metric
+feature_importance.csv
+confusion matrix用data
+group score
+class metric
 residual table
 ```
 
-大量のplotを自動生成するより、後から分析可能な元データを保存することを優先する。
-
-可視化は主にNotebook側で行う。
+大量plotを自動生成するより、後から分析できるraw diagnostic dataを優先する。
 
 ---
 
 # 19. Logs
 
-Experiment実行時に以下を保存してよい。
+`log.txt` はdebug / failed run調査に利用してよい。
 
-```text
-log.txt
-```
+重要情報をlogだけに閉じ込めない。
 
-Logは主にdebugやfailed runの原因調査に利用する。
-
-重要なexperiment情報をlogだけに保存してはならない。
-
-体系的な分析に必要な情報は以下に保存する。
-
-```text
-metrics.json
-metadata.json
-README.md
-experiments.csv
-```
-
-大容量logは通常Gitにcommitしない。
+Systematic analysisに必要な情報は `metrics.json`、`metadata.json`、`README.md`、registryへ保存する。
 
 ---
 
 # 20. Experiment README
 
-各completed experimentには以下を作成する。
+Completed experimentには `README.md` を作る。
 
-```text
-README.md
-```
+Template: `docs/templates/experiment_readme.md`
 
-Template:
-
-```text
-docs/templates/experiment_readme.md
-```
-
-READMEはexperimentの定性的な解釈を記録する。
-
-主なsection:
-
-```text
-Hypothesis
-Changes
-Results
-Analysis
-Conclusion
-Next
-```
-
-`metrics.json`の単純なコピーにしてはならない。
-
-READMEが答えるべき中心的な問いは、
+中心的な問い:
 
 > このexperimentから何を学んだか？
 
-である。
+記載内容:
 
-性能が悪化したexperimentも重要な情報なので記録する。
+- Hypothesis
+- Changes
+- Results
+- Analysis
+- Conclusion
+- local Next
 
-Conclusionでは必要に応じて以下を使用する。
+Conclusionは必要に応じて:
 
 ```text
 Supported
@@ -872,19 +559,21 @@ Not supported
 Inconclusive
 ```
 
-観測された事実と推測は区別して記述する。
+さらに、robust parentを変更するのにconfirmationが必要か記載する。
+
+Persistentなfuture hypothesisは `docs/experiment_queue/` へ移す。
 
 ---
 
 # 21. experiments.csv
 
-Experiment registryは以下に保存する。
+Registry:
 
 ```text
 experiments/experiments.csv
 ```
 
-1 experimentにつき1行とする。
+1 experiment = 1 row。
 
 初期推奨schema:
 
@@ -906,30 +595,21 @@ git_dirty
 created_at
 ```
 
-例:
-
-```csv
-experiment_id,parent_experiment,description,hypothesis,status,role,cv_scheme,cv_score,cv_std,model,num_trials,duration_sec,git_commit,git_dirty,created_at
-exp_001_baseline,,baseline,Establish baseline performance,completed,baseline,standard,0.7012,0.0081,lightgbm,1,144.2,abc123,false,2026-08-08T10:00:00+09:00
-```
-
 用途:
 
-* filtering
-* sorting
-* experimentの簡易比較
-* エージェントへのcontext提供
-* 関連experimentの検索
+- filtering
+- sorting
+- experiment comparison
+- agent context
+- relevant experiment search
 
-複雑なnested structureはCSVに保存しない。
-
-例えばfoldごとの詳細scoreは`metrics.json`に保存する。
+Fold detail等は `metrics.json` へ置く。
 
 ---
 
 # 22. Status
 
-推奨status:
+推奨:
 
 ```text
 planned
@@ -938,31 +618,15 @@ completed
 failed
 ```
 
-## `planned`
-
-Configは存在するが、実行されていない。
-
-## `running`
-
-Experiment実行中。
-
-## `completed`
-
-正常に完了し、有効な評価結果が生成された。
-
-## `failed`
-
-実行に失敗し、有効なcompleted resultが生成されなかった。
-
-可能な限りregistryを自動更新する。
+Performanceが悪化した正常runは`completed`であり`failed`ではない。
 
 ---
 
-# 23. Current Best
+# 23. Numerical Best / Screening / Confirmation / Promotion
 
-Current bestは`experiments.csv`から判定する。
+## Numerical Best
 
-原則として、
+標準CVを使ったcompleted experimentのnumerical rankingはregistryから計算する。
 
 ```text
 status == completed
@@ -970,158 +634,82 @@ AND
 cv_scheme == standard
 ```
 
-を満たすexperimentのみを候補とする。
+Metric directionは明示定義し、metric名から推測しない。
 
-Primary CV scoreが最も良いexperimentをcurrent bestとする。
+Numerical historyのsource of truthはregistryであり、project-level documentに別の手動tableを維持しない。
 
-Metricには最大化するものと最小化するものがある。
+## Screening
 
-最大化例:
+Screeningは、次に調べる価値があるか判断するための最小限の評価。
 
-```text
-F1
-AUC
-accuracy
-```
+Small gainがobserved variation内にありうる場合、screeningだけでRobust Parentを置き換えない。
 
-最小化例:
+## Confirmation
 
-```text
-RMSE
-MAE
-log loss
-```
+Decision riskに応じ、より強いevidenceを取る。
 
-そのためmetric directionはmetric名から推測せず、明示的に定義する。
+典型trigger:
 
-複数箇所でcurrent bestを手動管理しない。
+- robust parentを置き換える
+- gainがvalidation variationに対して小さい
+- fold / seed挙動が不安定
+- resource増加が大きい
+- strategy変更に使う
 
-`EXPERIMENT_SUMMARY.md`に可読性のためcurrent bestを書いてもよいが、構造化されたsource of truthはexperiment registryとする。
+Repeated seed、repeated fold、alternate diagnostics等からcompetitionに合う方法を選ぶ。Universal seed countは定めない。
+
+## Promotion
+
+Promotionはproject decisionであり、単なる`argmax(cv_score)`ではない。
+
+現在のRobust ParentとApparent Best / Unconfirmed Bestは `docs/STATUS.md` に記録する。
 
 ---
 
 # 24. Processed Data
 
-Processed datasetは以下に保存する。
+`data/processed/` はraw data + source code + configurationから再生成可能にする。
 
-```text
-data/processed/
-```
+Manual undocumented operationへ依存しない。
 
-Processed dataは以下から再生成可能にする。
-
-```text
-raw data
-+
-source code
-+
-configuration
-```
-
-文書化されていない手作業に依存してはならない。
-
-Processed datasetについて以下に説明を書く。
-
-```text
-data/processed/README.md
-```
-
-各主要datasetについて以下を記録する。
-
-```text
-name
-source data
-purpose
-generation method
-important transformations
-important caveats
-```
-
-例:
-
-```markdown
-## dataset_v002
-
-Source:
-- `data/raw/train.csv`
-
-Generated by:
-- `src/preprocessing/` のpreprocessing pipeline
-
-Changes:
-- missing valueを正規化
-- invalid rowを除外
-- derived field Xを追加
-
-Used by:
-- exp_014以降
-```
-
-READMEは説明用である。
-
-実際の変換logicはcode/configに置き、datasetを再生成できるようにする。
+主要datasetは `data/processed/README.md` にsource、purpose、generation method、transformations、caveatsを記載する。
 
 ---
 
 # 25. Cache
 
-Cacheは以下に保存する。
+`data/cache/` はperformance目的の一時data。
 
 ```text
-data/cache/
+cacheを削除してもexperimentの意味が変わらない
 ```
 
-Cacheはexperiment高速化だけを目的とする。
+ことを満たす。
 
-例:
-
-* 計算コストの高いfeature
-* intermediate transformation
-* 一時的なserialized representation
-
-以下を満たす必要がある。
-
-```text
-cacheを削除してもexperimentの意味が変化しない
-```
-
-Cacheが存在しない場合、可能な限り自動再生成する。
-
-異なるconfigから異なる内容が生成される場合、filenameだけをcache keyにすることは避ける。
-
-可能であれば、関連するpreprocessing / feature configurationをcache identityに反映する。
-
-初期実装ではcache invalidationを過度に複雑化しない。
+Config依存cacheは可能な範囲でidentityに関連configを反映する。
 
 ---
 
-# 26. PreprocessingとFeature Generation
+# 26. Preprocessing / Feature Generation
 
-正式なexperimentに必要な前処理・特徴量生成はexperiment commandから実行可能にする。
+Formal experimentに必要な処理はexperiment commandから実行可能にする。
 
-以下のようなworkflowを正式experimentの再現に必要としてはならない。
+避ける:
 
 ```text
-Notebookを手動実行
-↓
-CSVを手動保存
-↓
-experiment実行
+Notebook手動実行
+→ CSV手動保存
+→ experiment
 ```
 
-推奨workflow:
+推奨:
 
 ```text
 run_experiment.py
-↓
-preprocessing code
-↓
-feature generation code
-↓
-model training
+→ preprocessing
+→ feature generation
+→ model training
 ```
-
-重い共通処理にはprocessed dataやcacheを利用してよい。
 
 ---
 
@@ -1129,135 +717,65 @@ model training
 
 Notebookはexperiment definitionではない。
 
-主な用途:
+用途:
 
-```text
-EDA
-visualization
-OOF analysis
-CV analysis
-Error Analysis
-小規模な探索
-```
+- EDA
+- visualization
+- OOF analysis
+- CV analysis
+- Error Analysis
+- small exploratory work
 
-Notebook内のlogicが正式experimentに必要になった場合、再利用可能な実装を`src/`へ移す。
-
-Notebook filenameには必要に応じて連番を使用する。
-
-```text
-001_eda.ipynb
-002_target_analysis.ipynb
-003_cv_analysis.ipynb
-```
-
-Notebook番号とExperiment IDの番号は独立して扱う。
+Formal experimentに必要なlogicは `src/` へ移す。
 
 ---
 
 # 28. Submission Generation
 
-Submission生成は通常のCV experimentから分離する。
-
-想定interface:
+Submission生成はCV experimentから分離する。
 
 ```bash
 uv run python scripts/make_submission.py \
   --experiment exp_024_add_new_feature
 ```
 
-選択されたexperimentの保存済みconfigを使用する。
+保存済みexperiment configとcode stateから必要なfull trainingを再現する。
 
-概念的なflow:
-
-```text
-experiment config読み込み
-↓
-preprocessing / features再現
-↓
-必要なfull training dataで学習
-↓
-test prediction
-↓
-submission生成
-↓
-submission provenance記録
-```
-
-通常のexperimentではfull-data modelを学習する必要はない。
-
-これにより、submissionしないexperimentに不要な計算を行わずに済む。
+普通のCV experimentで不要なfull-data trainingを行わない。
 
 ---
 
 # 29. Submission Tracking
 
-Submission fileは以下に保存する。
+Submissionは元experimentを追跡可能にする。
 
-```text
-submissions/
-```
+Public scoreはlocal CVの代替となる主要model selection基準にしない。
 
-各submissionは元experimentを追跡可能にする。
-
-単純な命名例:
-
-```text
-sub_001_exp_024_add_new_feature.csv
-```
-
-または同等の構造を使用する。
-
-意味のある外部評価結果が得られたsubmissionについては、
-
-```text
-docs/EXPERIMENT_SUMMARY.md
-```
-
-に履歴をまとめる。
-
-Public Leaderboard scoreをローカルCVの代わりとなる主要なモデル選択基準にはしない。
+重要なexternal evaluationから一般化可能な知見が得られた場合のみ、`docs/EXPERIMENT_SUMMARY.md` のCV / caveat findingとしてまとめる。単なるsubmission履歴は別途submission provenanceに置く。
 
 ---
 
 # 30. Model Checkpoint
 
-Model checkpointはデフォルトでは保存しない。
+Defaultでは全experimentのmodel checkpointを保存しない。
 
-通常のexperiment artifactでは以下を優先する。
+優先artifact:
 
 ```text
 config
 metrics
 metadata
-OOF prediction
+OOF
 analysis
 ```
 
-Modelは必要になったときに、
-
-```text
-config
-+
-source code state
-+
-data
-```
-
-から再学習することを基本とする。
-
-以下のような場合のみcheckpoint保存を検討する。
-
-* training costが非常に大きい
-* 正確な再学習が難しい
-* 特定のdownstream operationでmodel自体が必要
-
-大容量checkpointはGitにcommitしない。
+Checkpointを保存するのはtraining costが非常に高い、正確な再学習が難しい、downstreamでmodel自体が必要など明確な理由がある場合。
 
 ---
 
 # 31. Git Tracking Policy
 
-Gitは以下を目的とする。
+Gitの目的:
 
 ```text
 version control
@@ -1266,11 +784,7 @@ historical archive
 reproducibility
 ```
 
-大容量generated artifactの主要storageとしては使用しない。
-
-## Gitで管理するもの
-
-原則として以下を管理する。
+Gitで管理する軽量情報:
 
 ```text
 AGENTS.md
@@ -1283,64 +797,52 @@ scripts/
 tests/
 docs/
 experiments/experiments.csv
-experiment README
-experiment config copy
-metrics.json
-metadata.json
-小容量のgit_diff.patch
+experiment README/config/metrics/metadata
+small git_diff.patch
 ```
 
-## Gitで管理しないもの
-
-原則として以下を除外する。
+通常Gitで管理しないもの:
 
 ```text
 data/raw/
-data/processed/ の生成データ
+generated processed data
 data/cache/
-大容量OOF file
-model checkpoint
-大容量log
-生成されたsubmission CSV
-その他の大容量かつ再生成可能なartifact
+large OOF
+model checkpoints
+large logs
+generated submission CSV
 ```
-
-具体的な`.gitignore`は実際のartifact形式に合わせて設定する。
 
 ---
 
-# 32. Testing
+# 32. Testing / Task Risk
 
-Experiment結果の信頼性を損なう可能性のある処理を重点的にtestする。
+Experiment resultの信頼性を損なう処理を重点testする。
 
 優先対象:
 
 ```text
-preprocessing invariant
+preprocessing invariants
 CV splitting
 metric calculation
 submission format
-重要なdata join
+data join
 data leakage prevention
+OOF construction
+row alignment
 ```
 
-Coverageを増やすこと自体を目的として大規模なtest suiteを作らない。
+Riskに応じたquality gateは `AGENTS.md` を参照する。
 
-Experiment変更時は:
+特にCV、target-dependent preprocessing、leakage-sensitive join、metric、calibration、OOF、submission alignmentはhigh-riskとみなし、worker reportだけで正しいと判断しない。
 
-1. 変更したcomponentに関連するtestを実行する
-2. 高コストで無関係なtestは実行しない
-3. 共通infrastructureを変更した場合は、より広範囲なtestを実行する
-
-Trainingが正常終了したという事実だけで、preprocessingやvalidation logicが正しいと判断してはならない。
+Trainingが完走したことはvalidation logicの正しさの証明ではない。
 
 ---
 
 # 33. Failed Experiment
 
-Failed experimentを何も残さず消してはならない。
-
-実行に失敗した場合、可能な範囲で以下を保存する。
+Execution failureは可能な範囲で以下を残す。
 
 ```text
 status
@@ -1351,157 +853,129 @@ metadata
 Git state
 ```
 
-ただし、
-
-```text
-execution failure
-```
-
-と、
-
-```text
-正常に完了したが性能が悪化したexperiment
-```
-
-を区別する。
-
-例えば、
-
-```text
-CV scoreが0.01悪化した
-```
-
-experimentは`failed`ではない。
-
-正常に完了したがhypothesisが支持されなかった`completed` experimentである。
+正常完了したnegative resultとexecution failureを区別する。
 
 ---
 
-# 34. EXPERIMENT_SUMMARY.mdの更新
+# 34. Project-level Knowledge Routing
 
-Project全体の重要な知見は以下に保存する。
+Project-level情報を1つのsummaryへ集約しない。
 
-```text
-docs/EXPERIMENT_SUMMARY.md
-```
+## `docs/STATUS.md`
 
-Template:
+更新する場合:
 
-```text
-docs/templates/experiment_summary.md
-```
+- Robust Parentが変わった
+- Apparent Best / Unconfirmed Bestが生じた・解消した
+- Search Mapのbranch stateが変わった
+- Open Strategic Questionが変わった
+- Next Candidatesが変わった
+- current executionに影響するresource noteが変わった
 
-すべてのexperiment後に機械的に更新する必要はない。
+## `docs/EXPERIMENT_SUMMARY.md`
 
-Project全体の理解が変化した場合に更新する。
+更新する場合:
 
-例:
+- 複数decisionに再利用できるdurable scientific findingが得られた
+- robust positive / negative findingが確立した
+- CV / data / model / featureに関する一般化可能な知見が増えた
+- interaction / caveatが重要になった
 
-* 特徴量群の有効性が複数experimentで確認された
-* 有望だったhypothesisが明確に否定された
-* 新しいcurrent bestにより今後の方向性が変化した
-* CVの重大な問題が見つかった
-* train/test distributionの重要な差が判明した
-* 特定のmodeling方向を優先することになった
+Experiment changelogにしない。
 
-`EXPERIMENT_SUMMARY.md`をexperiment changelogにしてはならない。
+## `docs/ENGINEERING_NOTES.md`
 
-Experiment履歴そのものは`experiments.csv`で管理する。
+更新する場合:
+
+- parallelism、GPU、cache、determinism、memory、library behavior等で再利用可能な運用知識を得た
+
+十分に一般的で安全なら、documentへ書くだけでなくcode/config defaultも改善する。
+
+## `docs/HARNESS_LESSONS.md`
+
+更新する場合:
+
+- experiment loop自体に再利用可能な成功・失敗patternが見つかった
+
+Competition modeling ruleの置き場にしない。
+
+## `docs/experiment_queue/`
+
+Future hypothesisのbacklog。Experiment historyではない。
+
+意味のある結果の後は優先順位とSearch Mapとの整合を再評価する。
 
 ---
 
-# 35. エージェントによる自律Experiment Cycle
+# 35. Agent Autonomous Experiment Cycle
 
-エージェントに自律的なexperiment継続を依頼した場合、以下のcycleを基本とする。
+## Step 1: Current stateを理解する
 
-## Step 1: 現状を理解する
-
-以下を読む。
+読む:
 
 ```text
 AGENTS.md
-docs/EXPERIMENT_SUMMARY.md
+docs/STATUS.md
 experiments/experiments.csv
 ```
 
-以下を把握する。
+必要に応じてdurable summary、queue、engineering notesを追加で読む。
 
-```text
-baseline
-current best
-最近の関連experiment
-有効だった既知の方法
-有効でなかった既知の方法
-open questions
-```
+把握する:
 
-## Step 2: 関連Evidenceを選択する
+- baseline
+- Robust Parent
+- Apparent Best / Unconfirmed Best
+- relevant experiments
+- active / unexplored / stalled search branches
+- open strategic questions
 
-次の判断に必要なexperimentだけを詳細に調査する。
+## Step 2: Strategic questionを選ぶ
 
-優先的に読むもの:
+Near-neighbor improvementを自動的に次の仕事としない。
+
+同一lineageが続く、gainがuncertaintyより小さい、parameter tweakに偏る、queueが一branchへ偏る、重要branchが理由なくunexploredの場合はstrategic reviewを行う。
+
+## Step 3: Evidenceを選ぶ
+
+必要なexperimentだけ詳細に読む。
+
+優先:
 
 ```text
 README.md
 metrics.json
 config.yaml
+OOF / diagnostics（必要時）
 ```
 
-必要がない限り、過去の全experimentを詳細に読み込まない。
+## Step 4: Hypothesis / Queue Jobを選ぶ
 
-## Step 3: Hypothesisを立てる
+Queueから選ぶか、新しく明確なhypothesisを1つ立てる。
 
-明確なhypothesisを1つ立てる。
+## Step 5: ParentとExperiment-vs-Trialを決める
 
-以下を説明できるようにする。
+Logical parentを選び、homogeneous comparisonならtrialsを使う。
 
-```text
-なぜ改善すると考えるか
-どの過去experimentが根拠となるか
-どの変更によって検証するか
-```
+## Step 6: Implement / Verify
 
-## Step 4: Parentを選択する
+必要最小限の変更を行い、task riskに応じてtest、smoke test、diff reviewを実施する。
 
-新しいhypothesisに最も適したexperimentをparentとして選択する。
+## Step 7: Screening
 
-別のparentの方が論理的に適切であれば、current bestから必ず派生させる必要はない。
+標準experiment commandでscreeningを実行する。
 
-## Step 5: ExperimentかTrialか判断する
+## Step 8: Analyze
 
-同一hypothesisにおける小さなparameter差だけならtrialを使用する。
+比較対象:
 
-それ以外は新しいexperimentを作成する。
+- parent
+- baseline
+- numerical best
+- Robust Parent
+- observed validation variation
 
-## Step 6: Implement
-
-必要最小限のcode/config変更を行う。
-
-無関係なrefactoringを行わない。
-
-## Step 7: Test
-
-高コストなexperimentを実行する前に、必要に応じて関連する軽量testを実行する。
-
-## Step 8: Experiment実行
-
-標準のexperiment commandを使用する。
-
-## Step 9: Record
-
-Experiment artifactとregistryが正しく保存されたことを確認する。
-
-## Step 10: Analyze
-
-必要に応じて以下と比較する。
-
-```text
-parent experiment
-baseline
-current best
-```
-
-Hypothesisについて以下のいずれかを判断する。
+Hypothesis conclusion:
 
 ```text
 Supported
@@ -1510,135 +984,137 @@ Not supported
 Inconclusive
 ```
 
-## Step 11: Knowledgeを更新する
+## Step 9: Confirmation判断
 
-Experiment READMEを書く。
+Promotionがfragile resultに依存する場合、適切なconfirmationを実施する。
 
-Project全体の理解が変化した場合のみ`EXPERIMENT_SUMMARY.md`を更新する。
+## Step 10: Record / Route Knowledge
 
-## Step 12: 次のExperimentを決める
+- experiment README
+- metrics / metadata / registry
+- durable finding → EXPERIMENT_SUMMARY
+- engineering lesson → ENGINEERING_NOTES
+- strategy change → STATUS
+- persistent future hypothesis → queue
 
-得られた結果をevidenceとして次のhypothesisを決める。
+## Step 11: Re-evaluate Search Map / Queue
 
-中間結果を分析せず、大量のspeculative experimentを一括実行してはならない。
+次experimentを決める前に、active branchとqueue priorityを再評価する。
+
+大量のspeculative experimentをanalysisなしに一括実行しない。
 
 ---
 
-# 36. 初期実装のScope
+# 36. 初期実装Scope
 
-Experiment systemの初期versionはシンプルに保つ。
+初期systemはシンプルに保つ。
 
-初期段階で必要な機能:
+必要なもの:
 
 ```text
-self-contained experiment YAML
-Experiment ID管理
-parent experiment tracking
-1コマンドでのCV実行
-標準CV
-自動preprocessing / feature generation
-metrics.json
-metadata.json
-OOF保存
-experiments.csv
+self-contained YAML
+Experiment ID / parent tracking
+1-command CV
+standard CV
+preprocessing / feature generation
+metrics / metadata
+OOF
+registry
 experiment README
-Git commit / dirty検出
-git diff保存
-processed data documentation
-軽量test
+Git provenance
+git diff
+processed data docs
+lightweight tests
+STATUS / durable summary / engineering notes / queue
 ```
 
-以下は必要性が明確になってから追加する。
+必要性が明確になるまで追加しない:
 
 ```text
 Optuna integration
-複雑なconfig inheritance
+complex config inheritance
 experiment dashboard
 MLflow
 Weights & Biases
 automatic report generation
-高度なcache dependency graph
+complex cache graph
 distributed experimentation
 ```
-
-シンプルなsystemで不足が生じるまで導入しない。
 
 ---
 
 # 37. Source of Truth
 
-同じ情報が複数箇所に存在する場合、以下をsource of truthとする。
-
 ## Experiment Definition
 
-```text
-experiments/<experiment_id>/config.yaml
-```
-
-実際に実行されたexperiment definitionのsource of truth。
+`experiments/<experiment_id>/config.yaml`
 
 ## Numerical Result
 
-```text
-experiments/<experiment_id>/metrics.json
-```
-
-詳細な数値評価結果のsource of truth。
+`experiments/<experiment_id>/metrics.json`
 
 ## Execution Provenance
 
-```text
-experiments/<experiment_id>/metadata.json
-```
-
-実行環境・Git状態などのsource of truth。
+`experiments/<experiment_id>/metadata.json`
 
 ## Experiment Interpretation
 
-```text
-experiments/<experiment_id>/README.md
-```
+`experiments/<experiment_id>/README.md`
 
-定性的なexperiment interpretationのsource of truth。
+## Experiment Index / Numerical History
 
-## Experiment Index
+`experiments/experiments.csv`
 
-```text
-experiments/experiments.csv
-```
+## Current Navigation / Strategic State
 
-Project全体のexperiment registryのsource of truth。
+`docs/STATUS.md`
 
-## Project-level Knowledge
+## Durable Scientific Knowledge
 
-```text
-docs/EXPERIMENT_SUMMARY.md
-```
+`docs/EXPERIMENT_SUMMARY.md`
 
-現在までに得られたproject-level knowledgeのsource of truth。
+## Engineering / Operational Knowledge
 
-Summaryと個別experimentの記録が矛盾している場合は、個別experimentのraw recordを確認し、古くなったsummaryを修正する。
+`docs/ENGINEERING_NOTES.md`
+
+## Harness Meta-Knowledge
+
+`docs/HARNESS_LESSONS.md`
+
+## Future Hypothesis Backlog
+
+`docs/experiment_queue/`
+
+Project-level documentとimmutable experiment recordが矛盾する場合、experiment recordを確認し、staleなproject-level documentを修正する。
 
 ---
 
 # 38. Guiding Rule
 
-Experiment management systemによって、以下の問いに簡単に答えられる状態を維持する。
+Experiment management systemによって、少なくとも以下へ簡単に答えられる状態を維持する。
 
 > 何を試したか？
 
 > なぜ試したか？
 
-> 具体的に何を変更したか？
+> 何を変更したか？
 
-> どのコードとconfigから結果が生成されたか？
+> どのcode/configから結果が生成されたか？
 
 > どのように評価したか？
 
-> 性能は改善したか？
+> numerical bestは何か？
+
+> Robust Parentは何か？ それがnumerical bestと違うならなぜか？
+
+> 観測された改善はvalidation uncertaintyに対してどの程度確かか？
+
+> どのSearch Branchがactive / unexplored / stalledなのか？
 
 > 何を学んだか？
 
-> 次に何を試すべきか？
+> 次に検証する価値が高い問いは何か？
 
-Project structureやtoolingによってこれらの問いへの回答が難しくなった場合、experiment management systemを単純化または見直す。
+> どのengineering lessonをdefaultへ昇格させるべきか？
+
+これらの問いへの回答が難しくなった場合、管理systemを複雑化するのではなく、まず責務・document・experiment granularityを見直す。
