@@ -4,48 +4,68 @@
 
 This repository is a reusable template for data science competitions.
 
-The primary goal of this project is to improve local validation performance through rapid, reproducible experimentation.
-
-The standard development loop is:
-
-1. Review previous experiments.
-2. Form a concrete hypothesis.
-3. Create a new experiment based on an appropriate parent experiment.
-4. Make the minimum code/configuration changes necessary to test the hypothesis.
-5. Run the experiment using the standard local CV.
-6. Record all results.
-7. Analyze whether the hypothesis was supported.
-8. Update the accumulated experiment knowledge when appropriate.
-9. Use the findings to decide the next experiment.
+The primary goal is to improve local validation performance through rapid, reproducible experimentation while keeping the search strategy understandable to both humans and agents.
 
 Public leaderboard submissions should be used sparingly. Model development and experiment selection should primarily rely on local cross-validation.
 
+The harness has two equally important responsibilities:
+
+1. preserve enough evidence to reproduce and interpret completed experiments;
+2. keep the current search strategy visible so the project does not drift into unexamined local optimization.
+
 ---
 
-## Agent Workflow
+## Startup Reading Order
 
-Before proposing or implementing a new experiment, read the following in this order:
+Before proposing or implementing a new experiment, read only the context needed for the decision, in this order:
 
 1. `AGENTS.md`
-2. `docs/EXPERIMENT_SUMMARY.md`
+2. `docs/STATUS.md`
 3. `experiments/experiments.csv`
-4. Relevant experiment directories under `experiments/`
-5. Relevant configs under `configs/`
-6. Relevant implementation under `src/`
+4. `docs/EXPERIMENT_SUMMARY.md` when durable scientific findings are relevant
+5. `docs/experiment_queue/QUEUE.md` when selecting or reviewing future work
+6. relevant experiment directories, configs, and source files
+7. `docs/ENGINEERING_NOTES.md` when runtime, resource use, determinism, cache, or environment behavior matters
 
-Do not read every historical experiment in detail by default.
+Do not read every historical experiment by default.
 
-Use `EXPERIMENT_SUMMARY.md` and `experiments.csv` to identify the experiments relevant to the current task, then inspect their:
+Use `STATUS.md` and `experiments.csv` to identify the experiments that matter, then inspect their `README.md`, `config.yaml`, and `metrics.json` as needed.
 
-* `README.md`
-* `config.yaml`
-* `metrics.json`
+For detailed experiment-management rules, consult `docs/experiment_management.md`.
 
-as needed.
+---
 
-When the detailed experiment-management specification is required, consult:
+## Project-Level Knowledge Responsibilities
 
-`docs/experiment_management.md`
+Each project-level document has one primary role.
+
+### `docs/STATUS.md`
+
+The short, volatile human control plane.
+
+It records the current robust parent, any apparent but unconfirmed best result, the Search Map, a few high-confidence findings and dead ends, open strategic questions, near-term candidates, and concise resource notes.
+
+Keep it short enough to understand the project state in roughly five minutes.
+
+### `docs/EXPERIMENT_SUMMARY.md`
+
+The accumulated durable scientific knowledge of the project.
+
+It records generalized findings about validation, data, model families, features, negative results, interactions, and caveats. It is not the active backlog and is not the canonical current-state dashboard.
+
+### `docs/ENGINEERING_NOTES.md`
+
+Reusable engineering and operational knowledge: CPU/GPU usage, parallelism, determinism, cache behavior, library pitfalls, memory constraints, and environment-specific execution notes.
+
+### `docs/HARNESS_LESSONS.md`
+
+Reusable lessons about the experiment harness itself. This is meta-level design knowledge, not competition-specific modeling knowledge.
+
+### `docs/experiment_queue/`
+
+The future hypothesis backlog. It is not an auto-execution plan and not an experiment history.
+
+When a concise project-level document conflicts with immutable experiment artifacts, inspect the experiment artifacts and repair the stale project-level document.
 
 ---
 
@@ -53,19 +73,18 @@ When the detailed experiment-management specification is required, consult:
 
 ### Hypothesis-driven experiments
 
-Every experiment must test a concrete hypothesis.
+Every experiment must test a concrete hypothesis or diagnostic question.
 
-Do not create experiments whose only purpose is to "try something" without a reason.
+Before modifying code, identify:
 
-Before modifying code, clearly identify:
+- the hypothesis;
+- the logical parent experiment;
+- what changes;
+- what remains fixed;
+- the decision metric or diagnostic;
+- what information is gained if the result is positive or negative.
 
-* the hypothesis;
-* the parent experiment;
-* what will change;
-* what will remain unchanged;
-* which metric will determine whether the change was beneficial.
-
-Prefer experiments that isolate one meaningful change at a time.
+Prefer one meaningful scientific change at a time unless an interaction itself is the hypothesis.
 
 ### Experiment IDs
 
@@ -77,49 +96,91 @@ Example:
 
 `exp_023_add_depth_feature`
 
-Experiment IDs are immutable after a completed experiment has been recorded.
-
-Do not reuse an existing experiment ID for a different configuration or implementation.
+Completed experiment IDs and their historical artifacts are immutable. Never reuse an ID for a different configuration or implementation.
 
 ### Parent experiments
 
-New experiments should normally be derived from an existing experiment.
+Choose `parent_experiment` based on the hypothesis, not simply the most recent run or current numerical best.
 
-Record the parent using `parent_experiment`.
+The robust parent is the experiment currently considered reliable enough to serve as the default foundation for continued work. It may differ from an apparent numerical best that has not been sufficiently confirmed.
 
-Choose the parent based on the hypothesis being tested, not simply the most recently executed experiment.
+### Baseline
 
-### Baseline and current best
+`exp_001_baseline` is the fixed baseline experiment once established.
 
-`exp_001_baseline` is the fixed baseline experiment.
+If the baseline implementation is later found to be flawed, create a new corrective experiment. Do not rewrite historical results.
 
-Do not modify the meaning or results of the baseline after it has been established.
+---
 
-The current best experiment is determined automatically from experiments evaluated using the standard CV.
+## Screening, Confirmation, and Promotion
 
-Experiments using incompatible CV schemes must not be directly treated as improvements over the standard-CV current best.
+These are evidence stages, not mandatory experiment types.
+
+### Screening
+
+Use the cheapest evaluation that reasonably answers the immediate question.
+
+A screening result can justify further work, but a small apparent gain does not automatically become the new robust parent when it is plausibly within validation noise.
+
+### Confirmation
+
+Use stronger evidence when the decision warrants it, especially when:
+
+- replacing the robust parent;
+- the observed gain is small relative to known validation variation;
+- fold or seed behavior is inconsistent;
+- runtime/resource cost increases substantially for a small gain;
+- the result would materially change project strategy.
+
+Confirmation may use repeated seeds, repeated folds, alternate diagnostics, or another competition-appropriate robustness check. Do not impose one universal seed count or significance threshold.
+
+### Promotion
+
+Promotion is the decision to treat a result as a robust parent or otherwise change the project-level direction.
+
+Promotion is evidence-informed, not simply `argmax(cv_score)`.
+
+The experiment registry remains the source for numerical experiment history. `docs/STATUS.md` records the current strategic choice of robust parent and may separately note an apparent/unconfirmed best.
+
+---
+
+## Search Strategy and Strategic Review
+
+The harness must make exploration breadth visible without enforcing a fixed exploration quota.
+
+Maintain a competition-specific Search Map in `docs/STATUS.md`. Search branches can represent model families, representations, feature families, diagnostics, ensembles, validation questions, or other meaningful directions.
+
+Before reflexively launching another near-neighbor experiment, perform a strategic review when one or more of these conditions are true:
+
+- several consecutive experiments share the same parent lineage and only make local changes;
+- recent gains are consistently small relative to observed validation uncertainty;
+- parameter tweaks are replacing hypothesis-driven changes;
+- the active queue is dominated by one search branch;
+- important branches remain unexplored without an explicit reason.
+
+A strategic review does not require switching model families. Valid outcomes include better diagnostics, a new data hypothesis, a new representation, an interaction test, a deliberate pause, or a reasoned decision to continue exploitation.
+
+Do not launch a large speculative batch without evaluating intermediate results.
 
 ---
 
 ## Experiments vs Trials
 
-Use a new **experiment** when testing a meaningfully different hypothesis, feature set, preprocessing method, model design, CV design, or other substantive change.
+Use a new **experiment** for a meaningfully different scientific question, feature family, preprocessing method, model family, data flow, validation design, target transformation, ensemble design, or other substantive change.
 
-Use multiple **trials within one experiment** when testing small parameter variations under the same hypothesis.
+Use multiple **trials within one experiment** for homogeneous candidate comparisons under the same question.
 
-For example, testing:
+Examples that should normally be trials rather than many experiment IDs:
 
-* `max_depth = 6`
-* `max_depth = 8`
-* `max_depth = 10`
+- small hyperparameter grids;
+- screening many individual features under one feature-screening hypothesis;
+- pairwise feature comparisons under one interaction-screening hypothesis;
+- equivalent preprocessing variants;
+- the same model family with small structural variants.
 
-should normally be one experiment with multiple trials rather than three separate experiments.
+The goal is to keep `experiments.csv` at a useful semantic level. Do not create one registry row per candidate value when the interpretation is shared.
 
-Small trial grids may be declared directly in the experiment YAML.
-
-Do not introduce Optuna or large-scale hyperparameter optimization unless there is a clear reason to do so.
-
-Hyperparameter tuning is not an early-stage priority. Prefer improvements to validation, data understanding, preprocessing, features, and model design first.
+Do not introduce Optuna or large-scale hyperparameter optimization unless there is a clear reason. Early effort should usually prioritize validation, data understanding, features, representations, and model design.
 
 ---
 
@@ -131,33 +192,28 @@ Prefer:
 
 `1 experiment = 1 YAML`
 
-over configuration inheritance spread across many files.
+over inheritance spread across many files.
 
-Some duplication is acceptable if it makes an experiment understandable and reproducible from a single config.
+Some duplication is acceptable if it makes an experiment independently understandable and reproducible.
 
-Experiment configs should contain, as applicable:
+Config should contain, as applicable:
 
-* experiment ID;
-* description;
-* hypothesis;
-* notes;
-* parent experiment;
-* experiment role;
-* data configuration;
-* preprocessing configuration;
-* feature configuration;
-* CV configuration;
-* model configuration;
-* training configuration;
-* trial definitions.
+- experiment ID;
+- description;
+- hypothesis;
+- notes;
+- parent experiment;
+- experiment role;
+- data configuration;
+- preprocessing configuration;
+- feature configuration;
+- CV configuration;
+- model configuration;
+- training configuration;
+- trial definitions;
+- explicit resource/device settings when relevant.
 
-The detailed schema is documented in:
-
-`docs/experiment_management.md`
-
-When an experiment is executed, copy the exact executed configuration into the corresponding experiment result directory.
-
-The copied configuration represents historical state and must not later be edited to describe a different run.
+When an experiment is executed, copy the exact executed config into its experiment result directory. That copy represents historical state and must not later be rewritten to describe a different run.
 
 ---
 
@@ -165,106 +221,69 @@ The copied configuration represents historical state and must not later be edite
 
 Local CV is the primary basis for model development.
 
-A standard CV scheme should be used for normal experiments so results remain directly comparable.
+Normal experiments should use a standard CV so scores remain directly comparable.
 
-CV design itself is an important research target and may be experimented with separately.
+CV design itself may be tested separately. When using a non-standard CV:
 
-When using a non-standard CV:
+- clearly identify the scheme;
+- state what it is intended to test;
+- do not compare its score to standard-CV experiments as though they were equivalent.
 
-* clearly identify the CV scheme;
-* do not directly compare its score with standard-CV experiments as though they were equivalent;
-* document what the alternative CV is intended to test.
-
-Preserve the actual fold assignment when practical rather than relying only on a random seed to reproduce it.
+Preserve actual fold assignment when practical rather than relying only on a random seed.
 
 ---
 
 ## Experiment Execution
 
-Feature generation and preprocessing used by an experiment must be executable as part of the experiment pipeline.
-
-Avoid manual preprocessing steps required to reproduce an experiment.
-
-The intended execution flow is conceptually:
+Formal experiments should be reproducible through the experiment pipeline:
 
 `config -> preprocessing -> feature generation -> CV training -> evaluation -> result persistence`
 
-An experiment should be runnable through a single command.
+Avoid undocumented manual preprocessing required for reproduction.
 
-Experiment execution must record results even when useful diagnostic information is produced during a failed run.
+An experiment should be runnable through a single command when practical.
 
 Do not perform unnecessary full-data training or test prediction during ordinary CV experimentation.
+
+Failed runs should preserve useful diagnostic information when possible.
 
 ---
 
 ## Experiment Results
 
-Experiment outputs are stored under:
+Experiment outputs live under:
 
 `experiments/<experiment_id>/`
 
 Typical lightweight records include:
 
-* `config.yaml`
-* `metrics.json`
-* `metadata.json`
-* `README.md`
+- `config.yaml`
+- `metrics.json`
+- `metadata.json`
+- `README.md`
 
 Potential generated artifacts include:
 
-* OOF predictions;
-* logs;
-* trial results;
-* feature importance;
-* Git diff;
-* other diagnostic outputs.
+- OOF predictions;
+- logs;
+- trial results;
+- feature importance;
+- Git diff;
+- diagnostic tables.
 
-The exact format is defined in:
+### `metrics.json`
 
-`docs/experiment_management.md`
+Machine-readable evaluation results. Store primary metric, overall CV score, fold statistics, fold-level scores, useful secondary metrics, timing, trial results, and best trial as applicable.
 
-### metrics.json
+Do not place qualitative interpretation in `metrics.json`.
 
-`metrics.json` contains machine-readable evaluation results.
+### `metadata.json`
 
-It should contain, when applicable:
-
-* primary metric;
-* overall CV score;
-* fold mean;
-* fold standard deviation;
-* fold-level scores;
-* best iteration per fold;
-* training time;
-* preprocessing/training/prediction timing;
-* useful secondary metrics;
-* trial results;
-* best trial.
-
-Do not put qualitative experiment analysis in `metrics.json`.
-
-### metadata.json
-
-`metadata.json` describes the execution environment and provenance rather than model performance.
-
-Record information such as:
-
-* execution timestamp;
-* duration;
-* Git commit;
-* whether the working tree was dirty;
-* relevant environment information.
+Execution provenance: timestamps, duration, Git commit, dirty state, relevant environment information, and similar provenance.
 
 ### OOF predictions
 
-Preserve OOF predictions for completed experiments whenever practical.
-
-OOF predictions are important for:
-
-* error analysis;
-* comparing experiments;
-* ensemble analysis;
-* CV diagnostics.
+Preserve OOF predictions for completed experiments whenever practical. They are important for error analysis, experiment comparison, ensembling, calibration analysis, and validation diagnostics.
 
 They do not need to be committed to Git.
 
@@ -272,175 +291,147 @@ They do not need to be committed to Git.
 
 ## Experiment Documentation
 
-Every completed experiment must have a `README.md`.
+Every completed experiment must have a `README.md` following `docs/templates/experiment_readme.md`.
 
-Follow:
+At minimum document:
 
-`docs/templates/experiment_readme.md`
+- hypothesis;
+- changes from parent;
+- important results;
+- analysis;
+- conclusion;
+- whether the hypothesis was supported;
+- whether confirmation is needed before changing the robust parent;
+- a small number of local next questions.
 
-The experiment README should explain the experiment rather than duplicate machine-readable metrics.
+Distinguish observed facts from interpretation.
 
-At minimum, document:
+Negative results are valuable. A completed experiment with worse performance is still `completed`, not `failed`.
 
-* hypothesis;
-* changes from the parent;
-* important results;
-* analysis;
-* conclusion;
-* possible next steps.
-
-Explicitly state whether the evidence supports the original hypothesis.
-
-Failed or negative experiments are valuable. Do not hide them merely because performance decreased.
+Persistent future hypotheses belong in `docs/experiment_queue/`, not as an ever-growing list in each experiment README.
 
 ---
 
 ## Experiment Registry
 
-`experiments/experiments.csv` is the compact experiment registry.
+`experiments/experiments.csv` is the compact experiment registry and source for numerical experiment history.
 
-Its purpose is to make experiments easy for both humans and agents to scan, filter, and compare.
+It should contain concise fields such as:
 
-It should contain concise information such as:
+- experiment ID;
+- parent experiment;
+- description;
+- hypothesis;
+- status;
+- role;
+- CV scheme;
+- CV score;
+- CV standard deviation;
+- model;
+- number of trials;
+- duration;
+- Git commit;
+- Git dirty state;
+- creation time.
 
-* experiment ID;
-* parent experiment;
-* description;
-* hypothesis;
-* status;
-* role;
-* CV scheme;
-* CV score;
-* CV standard deviation;
-* model;
-* number of trials;
-* duration;
-* Git commit;
-* Git dirty state;
-* creation time.
+Do not put deeply nested information into the CSV. Detailed metrics belong in `metrics.json`; detailed interpretation belongs in experiment README files.
 
-Do not put large or deeply nested information into this CSV.
-
-Detailed metrics belong in `metrics.json`.
-
-Detailed interpretation belongs in the experiment `README.md`.
+Do not manually maintain another numerical experiment table in project-level docs.
 
 ---
 
-## Experiment Summary
+## Engineering Knowledge
 
-`docs/EXPERIMENT_SUMMARY.md` is the high-level accumulated knowledge of the project.
+Reusable speed, reliability, or environment findings belong in `docs/ENGINEERING_NOTES.md`.
 
-It is one of the primary entry points for both humans and agents.
+Once an operational lesson is learned, make it progressively harder to forget:
 
-Follow:
+1. record the observation;
+2. document the reusable recommendation;
+3. change code/config defaults when the recommendation is sufficiently general and safe;
+4. add validation or a test when silent regression would be costly.
 
-`docs/templates/experiment_summary.md`
+Do not rely on memory for known parallelism, device, cache, determinism, or library pitfalls.
 
-It should summarize topics such as:
+Avoid accidental single-thread defaults when safe parallelism is available, while respecting shared-server limits, deterministic requirements, and memory constraints.
 
-* baseline;
-* current best;
-* approaches that worked;
-* approaches that did not work;
-* CV findings;
-* open questions;
-* promising ideas.
+---
 
-Update it when an experiment produces information that materially changes the project's understanding.
+## Agent Delegation and Verification
 
-Do not mechanically add every experiment to the summary.
+Do not hard-code a particular model name as the required main or worker agent. Delegate based on the cost of an error.
 
-The summary should remain concise enough to quickly understand the current state of the competition work.
+### Low-risk work
+
+Examples:
+
+- routine config edits;
+- extracting metrics;
+- formatting structured records;
+- executing already-reviewed commands;
+- routine documentation updates from authoritative artifacts.
+
+These can be delegated to cheaper or less capable workers.
+
+### Medium-risk work
+
+Examples:
+
+- ordinary feature implementation;
+- model adapters;
+- preprocessing changes that do not cross target/leakage boundaries;
+- refactoring reusable experiment code.
+
+Require targeted tests and review the resulting diff before expensive execution.
+
+### High-risk work
+
+Examples:
+
+- CV split logic;
+- target-dependent preprocessing;
+- leakage-sensitive joins;
+- metric implementation;
+- calibration and threshold logic;
+- OOF construction;
+- submission alignment;
+- train/test row identity and label handling.
+
+Recommended quality gate:
+
+`implementation -> targeted unit/invariant tests -> smoke test -> diff review -> cheap execution when possible -> full experiment`
+
+A worker completion report is not proof. Verify authoritative artifacts, tests, diffs, executed configs, and produced results before trusting the experiment.
 
 ---
 
 ## Data Management
 
-Use the following conceptual separation:
+Use the conceptual separation:
 
-* `data/raw/` — original competition data;
-* `data/processed/` — reproducible processed datasets;
-* `data/cache/` — disposable caches used for speed.
-
-### Raw data
+- `data/raw/` — original competition data;
+- `data/processed/` — reproducible processed datasets;
+- `data/cache/` — disposable performance caches.
 
 Treat `data/raw/` as immutable.
 
-Never modify the original competition files in place.
+Processed data must be reproducible from raw data, source code, and configuration. Do not depend on undocumented manual transformations.
 
-### Processed data
+Document processed datasets in `data/processed/README.md`.
 
-Processed data must be reproducible from:
-
-* raw data;
-* source code;
-* experiment/configuration information.
-
-Do not create processed datasets through undocumented manual operations.
-
-Document processed datasets in:
-
-`data/processed/README.md`
-
-The README should explain:
-
-* what each processed dataset represents;
-* its source data;
-* how it was generated;
-* relevant preprocessing;
-* any important caveats.
-
-Deleting `data/processed/` should not destroy unique project knowledge.
-
-### Cache
-
-`data/cache/` exists only for performance.
-
-Code must remain logically correct if caches are deleted and regenerated.
+Cache deletion must not change experiment semantics. Cache should be regenerable.
 
 ---
 
-## Notebooks
+## Notebooks and Source Code
 
-Use `notebooks/` primarily for:
-
-* EDA;
-* visualization;
-* CV analysis;
-* error analysis;
-* exploratory investigation.
+Use `notebooks/` for EDA, visualization, validation analysis, error analysis, and exploratory investigation.
 
 Do not make notebooks the only implementation of preprocessing, feature generation, training, or evaluation required for reproducible experiments.
 
-When exploratory notebook code becomes part of a real experiment, move the reusable logic into `src/`.
+Move reusable formal experiment logic into `src/`.
 
-In short:
-
-`notebooks = exploration and analysis`
-
-`src = reproducible experiment logic`
-
----
-
-## Source Code
-
-Keep reusable experiment logic under `src/`.
-
-Typical responsibilities include:
-
-* preprocessing;
-* feature generation;
-* models;
-* CV;
-* metrics;
-* shared utilities.
-
-Keep modules focused.
-
-Do not introduce abstractions, frameworks, or directory layers before they are needed.
-
-Prefer simple code that is easy for both humans and agents to inspect and modify.
+Keep modules focused. Do not introduce abstractions or directory layers before they are needed, but do not allow a general-purpose runner to accumulate unlimited model-specific branches. When a file becomes difficult to reason about, split by responsibility rather than continuing to grow it for convenience.
 
 Avoid unrelated refactoring during an experiment.
 
@@ -448,19 +439,13 @@ Avoid unrelated refactoring during an experiment.
 
 ## Submission Policy
 
-Submissions to competition platforms should be relatively rare.
+Submission generation is separate from ordinary CV experimentation.
 
-Do not use the public leaderboard as the primary experiment-feedback mechanism.
+Do not use the public leaderboard as the primary feedback mechanism.
 
-Only create submissions from experiments that have a concrete reason to be evaluated externally.
+Create submissions only when an experiment has a concrete reason to be evaluated externally. Every submission must be traceable to the experiment it is based on.
 
-Submission generation should be separate from ordinary CV experimentation.
-
-A submission should be traceable back to the experiment on which it is based.
-
-Models generally do not need to be permanently saved.
-
-When a submission is needed, the preferred workflow is to reconstruct the selected experiment from its configuration and code state, train on the appropriate full training data, and generate test predictions.
+Models generally do not need to be permanently saved. Prefer reconstructing selected experiments from config, code state, and data when a full-data model is needed.
 
 ---
 
@@ -468,128 +453,165 @@ When a submission is needed, the preferred workflow is to reconstruct the select
 
 Do not save model checkpoints for every experiment by default.
 
-The experiment system should prioritize saving:
+Prioritize saving:
 
-* configurations;
-* metrics;
-* metadata;
-* OOF predictions;
-* diagnostic information.
+- configs;
+- metrics;
+- metadata;
+- OOF predictions;
+- diagnostic information;
+- interpretation.
 
-Models should normally be reproducible by retraining.
-
-Large model artifacts should only be preserved when there is a concrete reason.
+Keep large reproducible artifacts out of Git unless there is a concrete reason to preserve them.
 
 ---
 
 ## Git Policy
 
-Git is used primarily for:
+Git is used for version control, backup, historical archive, and reproducibility, not as storage for large generated artifacts.
 
-* version control;
-* backup;
-* historical archival;
-* reproducibility.
+Commit lightweight project knowledge:
 
-It is not intended to be the storage mechanism for large generated experiment artifacts.
+- source code;
+- scripts;
+- configs;
+- tests;
+- documentation;
+- experiment READMEs;
+- metrics/metadata when lightweight;
+- experiment summaries and queue metadata.
 
-Commit lightweight project knowledge, including:
+Do not commit large generated artifacts such as raw competition data, processed datasets, caches, large OOF files, model checkpoints, large logs, or generated submissions unless there is a specific reason.
 
-* source code;
-* scripts;
-* configs;
-* tests;
-* documentation;
-* experiment summaries;
-* lightweight experiment metadata and analysis.
-
-Do not commit large reproducible/generated artifacts such as:
-
-* raw competition data;
-* processed datasets;
-* caches;
-* large OOF files;
-* model checkpoints;
-* large logs;
-* generated submission files unless there is a specific reason.
-
-### Dirty working trees
-
-Experiments may be executed while the Git working tree contains uncommitted changes.
-
-When this happens:
+Experiments may run with a dirty working tree. When they do:
 
 1. record the current Git commit;
-2. record that the working tree was dirty;
+2. record that the tree was dirty;
 3. automatically preserve the relevant Git diff with the experiment.
 
-Do not rely on a commit hash alone when the experiment used uncommitted code.
-
-This mechanism should be automatic rather than requiring the user to manually manage experiment diffs.
+Do not rely on a commit hash alone when uncommitted code affected the run.
 
 ---
 
 ## Testing
 
-Keep the test suite lightweight and focused on failures that would make experiment results unreliable.
+Keep the suite focused on failures that would make experiment results unreliable.
 
-Prioritize tests for:
+Prioritize:
 
-* preprocessing invariants;
-* CV splitting;
-* evaluation metrics;
-* submission format and integrity;
-* other critical data-flow assumptions.
+- preprocessing invariants;
+- CV splitting;
+- metric calculation;
+- important data joins;
+- leakage prevention;
+- submission format and integrity;
+- other critical data-flow assumptions.
 
-Do not attempt to unit-test every experimental feature or model variation.
+Run targeted tests for ordinary changes. Run broader tests when shared infrastructure changes.
 
-When changing a specific component, run the tests relevant to that component rather than automatically running unrelated expensive tests.
+Training completing successfully is not proof that preprocessing or validation logic is correct.
+
+---
+
+## Experiment Queue
+
+Use `docs/experiment_queue/` for future hypotheses that should persist beyond a single experiment README.
+
+The queue is a backlog, not a batch script.
+
+- humans and agents may add jobs;
+- jobs do not reserve experiment IDs;
+- priorities may change after every meaningful result;
+- queue entries may become blocked, paused, superseded, or require review;
+- experiment history belongs in `experiments/`, not the queue.
+
+Use Expected Information Gain, evidence quality, expected benefit, compute/implementation cost, confounding risk, and downstream value when prioritizing.
 
 ---
 
 ## Autonomous Experimentation
 
-Agents may be asked to autonomously perform the full experimentation cycle.
+When asked to continue experimentation autonomously, use this loop:
 
-When doing so:
+1. Read `AGENTS.md`, `docs/STATUS.md`, and `experiments/experiments.csv`.
+2. Identify the active strategic question and relevant Search Map branch.
+3. Read durable summary/queue/engineering notes only as needed.
+4. Inspect only the relevant experiment artifacts.
+5. Form or select one justified hypothesis.
+6. Choose the logical parent and decide experiment vs trial.
+7. Make the minimum implementation/config change.
+8. Run the verification appropriate to task risk.
+9. Run a screening experiment.
+10. Analyze evidence relative to parent, baseline, numerical best, and observed uncertainty.
+11. Decide whether confirmation is needed before promotion.
+12. If confirmation is warranted, run an appropriate robustness check before replacing the robust parent.
+13. Write the experiment README and update registry/artifacts.
+14. Update `EXPERIMENT_SUMMARY.md` only for durable scientific knowledge.
+15. Update `ENGINEERING_NOTES.md` when a reusable operational lesson was learned.
+16. Update `STATUS.md` when current strategy, robust parent, Search Map, or near-term decisions changed.
+17. Re-evaluate relevant queue jobs and the overall Search Map before selecting the next experiment.
 
-1. Read the project summary and experiment registry.
-2. Identify relevant previous experiments.
-3. Inspect their detailed results.
-4. Form one justified hypothesis.
-5. Select an appropriate parent experiment.
-6. Decide whether the change deserves a new experiment or only a trial.
-7. Create the experiment definition.
-8. Make the minimum necessary implementation changes.
-9. Run appropriate targeted tests.
-10. Run the experiment using the appropriate CV.
-11. Record all results.
-12. Analyze the result against the original hypothesis.
-13. Write the experiment README.
-14. Update `experiments.csv`.
-15. Update `EXPERIMENT_SUMMARY.md` only when project-level knowledge has materially changed.
-16. Recommend the next action based on evidence.
+Do not interpret every completed result as an instruction to create another local experiment on the same lineage.
 
-Do not launch a large sequence of speculative experiments without evaluating intermediate results.
+---
 
-Do not perform expensive hyperparameter searches by default.
+## Source of Truth
 
-Prefer learning from each experiment before choosing the next one.
+### Experiment definition
+
+`experiments/<experiment_id>/config.yaml`
+
+### Numerical result
+
+`experiments/<experiment_id>/metrics.json`
+
+### Execution provenance
+
+`experiments/<experiment_id>/metadata.json`
+
+### Experiment interpretation
+
+`experiments/<experiment_id>/README.md`
+
+### Experiment index / numerical history
+
+`experiments/experiments.csv`
+
+### Current navigation and strategic state
+
+`docs/STATUS.md`
+
+### Durable scientific knowledge
+
+`docs/EXPERIMENT_SUMMARY.md`
+
+### Engineering / operational knowledge
+
+`docs/ENGINEERING_NOTES.md`
+
+### Harness meta-knowledge
+
+`docs/HARNESS_LESSONS.md`
+
+### Future hypothesis backlog
+
+`docs/experiment_queue/`
 
 ---
 
 ## General Development Rules
 
-* Preserve reproducibility.
-* Prefer simple implementations.
-* Make one meaningful experimental change at a time when possible.
-* Do not modify raw competition data.
-* Do not overwrite historical experiment results.
-* Do not silently change the standard CV.
-* Do not optimize against the public leaderboard.
-* Do not add unnecessary dependencies.
-* Do not introduce infrastructure before it is needed.
-* Record negative results as carefully as positive ones.
-* Keep generated heavy files out of Git.
-* Make important decisions discoverable in project documentation.
-* When uncertain, inspect existing experiments and documentation before inventing a new convention.
+- Preserve reproducibility.
+- Prefer simple implementations.
+- Make one meaningful experimental change at a time when possible.
+- Do not modify raw competition data.
+- Do not overwrite historical experiment results.
+- Do not silently change the standard CV.
+- Do not optimize primarily against the public leaderboard.
+- Do not add unnecessary dependencies.
+- Do not introduce infrastructure before it is needed.
+- Record negative results as carefully as positive ones.
+- Keep generated heavy files out of Git.
+- Make important decisions discoverable in the correct project document.
+- Do not rely on chat history as the source of truth for experiment state.
+- When uncertain, inspect authoritative artifacts and existing rules before inventing a new convention.
