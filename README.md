@@ -1,31 +1,55 @@
 # Kaggle / Competition Experiment Template
 
-Kaggleを含むデータサイエンスコンペティション向けの、再利用可能なローカル開発・実験用templateです。
+Kaggleを含むデータサイエンスコンペティション向けの、再利用可能なローカル開発・実験templateです。
+
+このtemplateは、**ローカルCross-Validationを中心に再現可能な実験を高速に回すこと**と、**人間とagentが探索戦略を共同で把握できること**を重視します。
+
+Public Leaderboardへのsubmissionは主要なfeedback loopにしません。
 
 ## Using This Template
 
-新しいコンペティションで利用するときは、最初に以下を行います。
+新しいcompetitionで利用するときは、最初に以下を行います。
 
-1. READMEのタイトルとcompetition概要を対象コンペティションに合わせる
-2. 配布データを変更せず `data/raw/` に配置する
-3. データ構造・評価指標・標準CVを確認して文書化する
-4. 最小限のbaseline pipelineを実装する
-5. `uv run python scripts/new_experiment.py --name baseline` で最初のconfigを作成する
+1. READMEのタイトルとcompetition概要を対象competitionに合わせる
+2. 配布dataを変更せず `data/raw/` に配置する
+3. data structure、評価指標、標準CVを確認する
+4. `docs/STATUS.md` にGoalと初期Search Mapを記載する
+5. CPU / GPU / memory / deterministic requirement等の重要な環境制約があれば `docs/ENGINEERING_NOTES.md` に記録する
+6. 最小限のbaseline pipelineを実装する
+7. `uv run python scripts/new_experiment.py --name baseline` で最初のconfigを作る
+8. `exp_001_baseline` を実行し、以後の比較基準を確立する
 
-Competition固有の処理は、確認した仕様に基づいて `src/` とexperiment configへ実装してください。
+Competition固有処理は、確認した仕様に基づいて `src/` とexperiment configへ実装してください。
 
-このプロジェクトでは、Public Leaderboard への頻繁な submission よりも、**ローカル Cross-Validation を中心に再現可能な実験を高速に繰り返すこと**を重視します。
+---
 
-主な実験サイクルは次のとおりです。
+## Core Experiment Loop
 
-1. 過去の実験結果を確認する
-2. 改善仮説を立てる
-3. 親となる実験から新しい experiment を作成する
-4. 必要なコード・config を変更する
-5. 標準 CV で評価する
-6. metrics・OOF・ログなどを保存する
-7. 結果を考察する
-8. 得られた知見を次の実験へ反映する
+```text
+STATUS / registryを確認
+↓
+strategic questionを選ぶ
+↓
+hypothesisを立てる
+↓
+logical parentとexperiment-vs-trialを決める
+↓
+最小限の変更を実装・検証
+↓
+screening CV
+↓
+結果とuncertaintyを分析
+↓
+必要ならconfirmation
+↓
+robust parentをpromotionまたは維持
+↓
+適切なknowledge documentを更新
+↓
+Search Map / queueを再評価
+```
+
+小さなscore改善を毎回そのまま次のparentへ昇格させるのではなく、observed CV variationやfold/seed behaviorも考慮します。
 
 ---
 
@@ -49,11 +73,19 @@ Competition固有の処理は、確認した仕様に基づいて `src/` とexpe
 │   └── cache/
 │
 ├── docs/
+│   ├── STATUS.md
 │   ├── EXPERIMENT_SUMMARY.md
+│   ├── ENGINEERING_NOTES.md
+│   ├── HARNESS_LESSONS.md
 │   ├── experiment_management.md
+│   ├── experiment_queue/
+│   │   ├── README.md
+│   │   └── QUEUE.md
 │   └── templates/
 │       ├── experiment_readme.md
-│       └── experiment_summary.md
+│       ├── experiment_summary.md
+│       ├── status.md
+│       └── experiment_job.md
 │
 ├── experiments/
 │   ├── experiments.csv
@@ -75,25 +107,88 @@ Competition固有の処理は、確認した仕様に基づいて `src/` とexpe
 │   └── utils/
 │
 ├── submissions/
-│
 └── tests/
 ```
 
-各ディレクトリの詳細な役割や実験管理ルールは `AGENTS.md` および `docs/experiment_management.md` を参照してください。
+詳細なrulesは `AGENTS.md` と `docs/experiment_management.md` を参照してください。
+
+---
+
+## Project-Level Documents
+
+### `docs/STATUS.md`
+
+現在地を短時間で理解するためのhuman control planeです。
+
+主に以下を置きます。
+
+- Goal
+- Robust Parent
+- Apparent Best / Unconfirmed Best
+- Search Map
+- High-confidence Findings
+- Dead Ends / Deprioritized Directions
+- Open Strategic Questions
+- Next Candidates
+- concise Resource Notes
+
+Experiment historyや長期的な知識archiveにはしません。
+
+### `docs/EXPERIMENT_SUMMARY.md`
+
+複数の意思決定に再利用できるdurable scientific knowledgeをまとめます。
+
+例:
+
+- CV findings
+- data findings
+- model findings
+- feature findings
+- robust positive / negative findings
+- interactions / caveats
+
+Current directionやactive backlogはここへ置きません。
+
+### `docs/ENGINEERING_NOTES.md`
+
+実験の速度・安定性・再現性に関する再利用可能な運用知識を置きます。
+
+例:
+
+- CPU parallelism
+- GPU settings
+- memory constraints
+- deterministic behavior
+- cache behavior
+- library-specific pitfalls
+
+安全で一般化可能なrecommendationは、documentへ残すだけでなくcode/config defaultへ反映することを優先します。
+
+### `docs/HARNESS_LESSONS.md`
+
+Experiment harness自体から得たmeta-level lessonを記録します。
+
+Competition固有のmodeling findingではなく、「実験ループをどう設計すると良いか」の知見を蓄積します。
+
+### `docs/experiment_queue/`
+
+将来検証したいhypothesisのbacklogです。
+
+Queueは自動実行listではありません。意味のある結果の後はpriorityを再評価します。
+
+人間もagentもjobを追加できます。Jobにexperiment IDを事前予約せず、実際に実行すると決めた時点で採番します。
 
 ---
 
 ## Environment
 
-Python 環境と依存関係の管理には `uv` を使用します。
-
-### Setup
+Python環境とdependency管理には `uv` を使用します。
 
 ```bash
 uv sync
 ```
 
-仮想環境を有効化せず、基本的には `uv run` 経由でコマンドを実行します。
+基本的に仮想環境を手動activateせず `uv run` 経由で実行します。
 
 例:
 
@@ -101,13 +196,13 @@ uv sync
 uv run python --version
 ```
 
-依存ライブラリを追加する場合:
+Dependency追加:
 
 ```bash
 uv add <package>
 ```
 
-開発用依存関係を追加する場合:
+Development dependency:
 
 ```bash
 uv add --dev <package>
@@ -116,8 +211,6 @@ uv add --dev <package>
 ---
 
 ## Data
-
-各コンペティションで配布された元データは `data/raw/` に配置します。
 
 ```text
 data/
@@ -128,87 +221,64 @@ data/
 
 ### `data/raw/`
 
-配布された元データを保存します。
-
-元データは原則として変更しません。
+Competitionから配布されたoriginal dataを保存します。原則immutableです。
 
 ### `data/processed/`
 
-再生成可能な加工済みデータを保存します。
+再生成可能なprocessed dataを保存します。
 
-各 processed dataset の内容と生成方法は、
-
-```text
-data/processed/README.md
-```
-
-に記録します。
-
-加工済みデータは、raw data・ソースコード・config から再生成できる状態を維持します。
+内容と生成方法を `data/processed/README.md` に記録し、raw data・source code・configから再生成できる状態を維持します。
 
 ### `data/cache/`
 
-前処理や特徴量生成を高速化するための一時キャッシュです。
-
-削除しても再生成できることを前提とします。
+Speed-up用の一時cacheです。削除してもexperiment semanticsが変わらないことを前提とします。
 
 ---
 
 ## Experiment Configuration
 
-各 experiment は `configs/` 以下の自己完結した YAML ファイルとして定義します。
+各experimentは `configs/` 以下の自己完結したYAMLとして定義します。
 
 ```text
-configs/
-├── exp_001_baseline.yaml
-├── exp_002_add_xxx.yaml
-└── ...
+configs/exp_001_baseline.yaml
+configs/exp_002_add_xxx.yaml
 ```
 
-命名規則:
+命名:
 
 ```text
 exp_NNN_short_description
 ```
 
-例:
-
-```text
-exp_023_add_depth_feature
-```
-
-原則として、
+原則:
 
 ```text
 1 experiment = 1 YAML
 ```
 
-とします。
+Configには必要に応じて以下を含めます。
 
-config には、必要に応じて以下を記録します。
+- experiment ID
+- description
+- hypothesis
+- notes
+- parent experiment
+- data
+- preprocessing
+- features
+- CV
+- model
+- training
+- trials
+- resource/device settings
 
-* experiment ID
-* description
-* hypothesis
-* notes
-* parent experiment
-* data
-* preprocessing
-* features
-* CV
-* model
-* training
-* trials
-
-詳細な schema は `docs/experiment_management.md` を参照してください。
+詳細schemaは `docs/experiment_management.md` を参照してください。
 
 ---
 
 ## Creating a New Experiment
 
-新しい実験は、原則として既存 experiment を親として作成します。
-
-想定している操作例:
+想定例:
 
 ```bash
 uv run python scripts/new_experiment.py \
@@ -216,212 +286,26 @@ uv run python scripts/new_experiment.py \
   --name add_geology_feature
 ```
 
-これにより、親 experiment の config を元に、新しい experiment 用 config を作成します。
-
-新しい experiment では、
-
-* 何を検証するのか
-* なぜ改善すると考えるのか
-* 親 experiment から何を変更するのか
-
-を明確にしてください。
-
----
-
-## Running an Experiment
-
-実験は 1 コマンドで、
-
-```text
-前処理
-↓
-特徴量生成
-↓
-Cross-Validation
-↓
-評価
-↓
-結果保存
-```
-
-まで実行することを目標とします。
-
-想定コマンド:
-
-```bash
-uv run python scripts/run_experiment.py \
-  --config configs/exp_024_add_geology_feature.yaml
-```
-
-通常の実験では、原則として共通の標準 CV を使用します。
-
-CV 設計自体を検証する実験では別の CV を使用しても構いませんが、標準 CV のスコアと直接比較しないよう注意してください。
-
----
-
-## Experiment Results
-
-実験結果は、
-
-```text
-experiments/<experiment_id>/
-```
-
-に保存します。
-
-例:
-
-```text
-experiments/
-└── exp_024_add_geology_feature/
-    ├── config.yaml
-    ├── metrics.json
-    ├── metadata.json
-    ├── oof.parquet
-    ├── log.txt
-    ├── README.md
-    └── git_diff.patch
-```
-
-`git_diff.patch` は、未 commit のコード変更を含む状態で実験した場合のみ保存します。
-
-### `config.yaml`
-
-実際に実行した config のコピーです。
-
-### `metrics.json`
-
-評価結果の詳細を保存します。
-
-例:
-
-* overall CV score
-* fold ごとの score
-* CV mean / std
-* best iteration
-* secondary metrics
-* 実行時間
-* trial の結果
-
-### `metadata.json`
-
-実験実行時の provenance を保存します。
-
-例:
-
-* 実行日時
-* Git commit
-* Git dirty state
-* 実行環境
-* 実行時間
-
-### `oof.parquet`
-
-OOF prediction を保存します。
-
-Error Analysis や ensemble 検討などに使用します。
-
-### `README.md`
-
-その experiment の人間向け・LLM 向けの考察を保存します。
-
-書式は、
-
-```text
-docs/templates/experiment_readme.md
-```
-
-に従います。
-
----
-
-## Experiment Registry
-
-全 experiment の一覧は、
-
-```text
-experiments/experiments.csv
-```
-
-で管理します。
-
-このファイルは、すべての experiment を横断的に比較するための軽量な experiment registry です。
-
-主な情報:
-
-* experiment ID
-* parent experiment
-* description
-* hypothesis
-* status
-* role
-* CV scheme
-* CV score
-* CV std
-* model
-* number of trials
-* duration
-* Git commit
-* Git dirty state
-* creation time
-
-詳細な fold 結果などは `metrics.json` を参照してください。
-
----
-
-## Experiment Summary
-
-プロジェクト全体で得られた重要な知見は、
-
-```text
-docs/EXPERIMENT_SUMMARY.md
-```
-
-にまとめます。
-
-このファイルには、すべての experiment を列挙するのではなく、
-
-* baseline
-* current best
-* 効果があったこと
-* 効果がなかったこと
-* CV に関する知見
-* データに関する知見
-* モデル・特徴量に関する知見
-* 未解決の問い
-* 次に試す価値が高いアイデア
-
-など、今後の意思決定に重要な情報だけを残します。
-
-書式は、
-
-```text
-docs/templates/experiment_summary.md
-```
-
-に従います。
-
----
-
-## Baseline and Current Best
-
-`exp_001_baseline` を固定 baseline とします。
-
-baseline は一度確定したら、後から意味を変更しません。
-
-current best は、原則として標準 CV を使用した completed experiment の中から自動的に判定します。
-
-異なる CV scheme を使用した experiment は、標準 CV の current best 判定には含めません。
+新experimentでは、少なくとも以下を明確にします。
+
+- 何を検証するか
+- なぜ検証する価値があるか
+- logical parentはどれか
+- parentから何を変更するか
+- 何を固定するか
+- どのmetric / diagnosticで判断するか
+
+Current robust parentから必ず派生する必要はありません。
 
 ---
 
 ## Experiments and Trials
 
-意味のある仮説の違いは、別 experiment として管理します。
+意味のあるscientific questionの違いは別experimentとして管理します。
 
-一方、同じ仮説の中での小さなパラメータ違いは、同一 experiment 内の trial として扱います。
+同じ問いの中での小さな候補差はtrialとして扱います。
 
-例えば、
+例:
 
 ```text
 max_depth = 6
@@ -429,180 +313,253 @@ max_depth = 8
 max_depth = 10
 ```
 
-だけを比較する場合は、3つの experiment を作らず、1つの experiment 内で複数 trial として実行します。
+は通常1experiment + 3 trialsです。
 
-初期段階では大規模なハイパーパラメータ探索を行わず、YAML に少数の候補値を列挙する程度に留めます。
+同様に、多数のindividual feature screening、feature pair比較、小さなpreprocessing variationなども、問いが同じならtrialへまとめます。
 
-Optuna 等の導入は必要性が明確になってから検討します。
+Registryを「候補値の一覧」にしないことが重要です。
+
+---
+
+## Running an Experiment
+
+想定command:
+
+```bash
+uv run python scripts/run_experiment.py \
+  --config configs/exp_024_add_geology_feature.yaml
+```
+
+Experimentは概念的に:
+
+```text
+preprocessing
+↓
+feature generation
+↓
+Cross-Validation
+↓
+evaluation
+↓
+result persistence
+```
+
+まで1commandで実行することを目標とします。
+
+通常experimentでは標準CVを使用します。CV studyで別schemeを使う場合はstandard-CV scoreと直接比較しません。
+
+---
+
+## Screening, Confirmation, Promotion
+
+### Screening
+
+次に詳しく調べる価値があるか判断するための安価な評価です。
+
+### Confirmation
+
+Robust Parentの置き換え、small gain、fold/seed instability、大きなresource increase、strategy changeなど、判断リスクが高い場合により強いevidenceを取ります。
+
+Confirmation方法はcompetitionに合わせます。Fixed seed countやuniversal thresholdは設けません。
+
+### Promotion
+
+新しいexperimentをRobust Parentまたはproject-level strategyへ昇格させる判断です。
+
+これは単純な `argmax(cv_score)` ではありません。
+
+Numerical historyはregistryにあり、現在のRobust Parentは `docs/STATUS.md` に記録します。
+
+---
+
+## Experiment Results
+
+Result directory:
+
+```text
+experiments/<experiment_id>/
+```
+
+例:
+
+```text
+config.yaml
+metrics.json
+metadata.json
+oof.parquet
+log.txt
+README.md
+git_diff.patch
+```
+
+### `config.yaml`
+
+実際に実行したconfigのcopy。Completed後はimmutableです。
+
+### `metrics.json`
+
+Machine-readableなevaluation result。Qualitative analysisは入れません。
+
+### `metadata.json`
+
+Execution provenance。Git commit / dirty state、timestamp、runtime等を保存します。
+
+### `oof.parquet`
+
+Error analysis、experiment comparison、ensemble、validation diagnostics等に利用します。通常Gitへcommitしません。
+
+### `README.md`
+
+Hypothesis、changes、results、analysis、conclusion、confirmationの必要性、local next questionsを記録します。
+
+---
+
+## Experiment Registry
+
+全experimentのcompact indexは:
+
+```text
+experiments/experiments.csv
+```
+
+で管理します。
+
+主なfields:
+
+- experiment ID
+- parent experiment
+- description
+- hypothesis
+- status
+- role
+- CV scheme
+- CV score / std
+- model
+- number of trials
+- duration
+- Git state
+- created time
+
+詳細なfold resultは `metrics.json`、解釈はexperiment READMEを参照します。
+
+---
+
+## Search Map and Strategic Review
+
+`docs/STATUS.md` のSearch Mapで、探索branchの状態を明示します。
+
+Branchはcompetition固有に定義して構いません。
+
+Near-neighbor experimentを続ける前にstrategic reviewを行う目安:
+
+- same lineageのlocal changesが連続
+- recent gainがvalidation uncertaintyより小さい
+- hypothesisよりparameter tweakが中心
+- queueが1branchへ偏る
+- important branchが理由なくunexplored
+
+Reviewの結論は「別modelを試す」に限定しません。Diagnostics、data hypothesis、representation、interaction、またはcontinued exploitationでも構いません。
 
 ---
 
 ## Notebooks
 
-`notebooks/` は主に以下の用途で使用します。
+`notebooks/` は主に:
 
-* Exploratory Data Analysis
-* 可視化
-* CV 分析
-* Error Analysis
-* 仮説検証のための探索
+- EDA
+- visualization
+- CV analysis
+- Error Analysis
+- exploratory investigation
 
-再現可能な正式実験で使用する処理は、Notebook のみに残さず `src/` へ移します。
+に使用します。
 
-```text
-notebooks = exploration / analysis
-src       = reproducible experiment logic
-```
+正式experimentに必要なlogicはNotebookだけに残さず `src/` へ移します。
 
 ---
 
 ## Submission
 
-コンペティションプラットフォームへの submission は頻繁には行いません。
-
-モデル開発の判断は原則としてローカル CV に基づきます。
-
-有望な experiment を外部評価したい場合のみ submission を作成します。
-
-想定コマンド:
+Submission generationはordinary CV experimentから分離します。
 
 ```bash
 uv run python scripts/make_submission.py \
   --experiment exp_024_add_geology_feature
 ```
 
-submission 作成時は保存済み config を使って必要な学習を再実行し、test prediction を生成します。
+Public LBをprimary experiment-feedback mechanismにしません。
 
-通常の experiment では、学習済み model checkpoint を保存しない方針です。
+Submissionは元experimentへtraceできる状態にします。
 
 ---
 
 ## Git Policy
 
-Git は主に以下の目的で使用します。
+Gitはversion control、backup、historical archive、reproducibilityのために使います。
 
-* バージョン管理
-* バックアップ
-* 実験時点のコード状態の記録
-* 長期的なアーカイブ
+Gitに保存する軽量情報:
 
-Git を大容量 experiment artifact の共有ストレージとしては使用しません。
+- source
+- configs
+- scripts
+- tests
+- docs
+- experiment README
+- metrics / metadata
+- registry
 
-### Git に保存するもの
+通常保存しないgenerated heavy data:
 
-例:
+- raw competition data
+- processed datasets
+- cache
+- large OOF
+- model checkpoint
+- large logs
+- generated submissions
 
-* source code
-* config
-* scripts
-* tests
-* documentation
-* experiment README
-* metrics / metadata などの軽量な記録
-* experiment summary
-
-### Git に保存しないもの
-
-例:
-
-* competition raw data
-* processed data
-* cache
-* large OOF predictions
-* model checkpoints
-* large logs
-* generated submission files
-
-実験時に working tree が dirty だった場合は、その状態を metadata に記録し、必要な `git diff` を experiment directory に保存します。
+Dirty working treeでexperimentした場合はGit commitとdirty stateを記録し、relevant diffをexperiment directoryへ保存します。
 
 ---
 
-## Testing
+## Testing and Agent Usage
 
-コンペ用プロジェクトのため、大規模な test suite は作りません。
+Agentはまず `AGENTS.md` を参照してください。
 
-実験結果の信頼性を損なう可能性が高い部分を重点的にテストします。
-
-主な対象:
-
-* preprocessing
-* CV splitting
-* metrics
-* submission format
-* 重要な data-flow invariant
-
-コード変更時は、変更に直接関係する test を優先して実行します。
-
----
-
-## Agent Usage
-
-Codex などの coding agent にこのプロジェクトを扱わせる場合は、まずルートの
-
-```text
-AGENTS.md
-```
-
-を参照してください。
-
-Agent は原則として、
+Default context order:
 
 ```text
 AGENTS.md
 ↓
-docs/EXPERIMENT_SUMMARY.md
+docs/STATUS.md
 ↓
 experiments/experiments.csv
 ↓
-関連する experiment
+必要に応じて EXPERIMENT_SUMMARY / queue / ENGINEERING_NOTES
 ↓
-関連する config / source code
+関連experiment / config / source
 ```
 
-の順で現在の状況を把握します。
+Implementation taskは、間違えたときのcostに応じてverification levelを変えます。
 
-Agent が自律的に experiment を行う際も、実験結果を確認せずに多数の experiment を一括実行するのではなく、
+特にCV splitting、target-dependent preprocessing、leakage-sensitive join、metric、calibration、OOF construction、submission alignmentはhigh-riskです。
 
-```text
-仮説
-↓
-実験
-↓
-評価
-↓
-考察
-↓
-次の仮説
-```
-
-を繰り返すことを基本とします。
+Workerの完了報告だけでexperiment correctnessを判断せず、tests、diff、executed config、metrics等のauthoritative artifactを確認します。
 
 ---
 
-## Documentation
+## Further Details
 
-詳細については以下を参照してください。
+Normativeな詳細仕様:
 
-* `AGENTS.md`
+```text
+docs/experiment_management.md
+```
 
-  * Agent 向けのプロジェクト運用ルール
+Harness designのretrospective:
 
-* `docs/experiment_management.md`
+```text
+docs/HARNESS_LESSONS.md
+```
 
-  * experiment 管理システムの詳細仕様
-
-* `docs/EXPERIMENT_SUMMARY.md`
-
-  * 現在までの主要な実験知識
-
-* `docs/templates/experiment_readme.md`
-
-  * 各 experiment の README template
-
-* `docs/templates/experiment_summary.md`
-
-  * Experiment Summary の template
-
-* `data/processed/README.md`
-
-  * processed dataset の説明
+このtemplateでは、必要性が明確になるまでMLflow、Weights & Biases、distributed experimentation、complex config inheritance等を導入しません。
